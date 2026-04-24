@@ -1,0 +1,8 @@
+streamlit
+pdfplumber
+openai
+sentence-transformers
+numpy
+torch
+python-dotenv
+googlesearch-python
