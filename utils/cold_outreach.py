@@ -1,10 +1,20 @@
 """cold_outreach.py — Generate cold email + LinkedIn message for job outreach."""
 import json, os
 from openai import OpenAI
-from dotenv import load_dotenv
 
-load_dotenv()
-_client = OpenAI(api_key=os.getenv("OPENROUTER_API_KEY", ""), base_url="https://openrouter.ai/api/v1")
+def _get_api_key():
+    try:
+        import streamlit as st
+        return st.secrets.get("OPENROUTER_API_KEY", "")
+    except Exception:
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
+        return os.getenv("OPENROUTER_API_KEY", "")
+
+_client = OpenAI(api_key=_get_api_key(), base_url="https://openrouter.ai/api/v1")
 _MODEL = "openai/gpt-4o-mini"
 
 _PERSON_CTX = {

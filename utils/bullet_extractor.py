@@ -2,12 +2,24 @@ import os
 import json
 import re
 from openai import OpenAI
-from dotenv import load_dotenv
 
-load_dotenv()
+def _get_api_key():
+    """Read OPENROUTER_API_KEY from st.secrets (Cloud) or .env (local)."""
+    try:
+        import streamlit as st
+        return st.secrets.get("OPENROUTER_API_KEY", "")
+    except Exception:
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
+        return os.getenv("OPENROUTER_API_KEY", "")
+
+API_KEY = _get_api_key()
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY", ""),
+    api_key=API_KEY,
 )
 
 def extract_bullets_from_resume(resume_text):
