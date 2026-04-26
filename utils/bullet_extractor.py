@@ -3,24 +3,42 @@ import json
 import re
 from openai import OpenAI
 
-def _get_api_key():
-    """Read OPENROUTER_API_KEY from st.secrets (Cloud) or .env (local)."""
+# ── Hardcoded fallback (ensures local dev always works) ───────────────────────
+_HARDCODED_KEY = "OPENROUTER_KEY_REMOVED"
+_ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
+
+
+def _get_api_key() -> str:
+    """Return OPENROUTER_API_KEY — Streamlit Cloud → env → .env → hardcoded fallback."""
+    # 1. Streamlit Cloud secrets (production)
     try:
         import streamlit as st
-        return st.secrets.get("OPENROUTER_API_KEY", "")
+        key = st.secrets.get("OPENROUTER_API_KEY", "")
+        if key:
+            return key
     except Exception:
-        try:
-            from dotenv import load_dotenv
-            load_dotenv()
-        except ImportError:
-            pass
-        return os.getenv("OPENROUTER_API_KEY", "")
+        pass
+    # 2. Environment variable (if injected by OS / app.py load_dotenv)
+    key = os.environ.get("OPENROUTER_API_KEY", "")
+    if key:
+        return key
+    # 3. Load .env file directly
+    try:
+        from dotenv import load_dotenv as _ld
+        _ld(dotenv_path=_ENV_PATH, override=True)
+        key = os.environ.get("OPENROUTER_API_KEY", "")
+        if key:
+            return key
+    except Exception:
+        pass
+    # 4. Guaranteed local fallback — always works
+    return _HARDCODED_KEY
 
-API_KEY = _get_api_key()
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=API_KEY,
-)
+
+def _get_client():
+    """Return a fresh OpenAI client pointed at OpenRouter."""
+    return OpenAI(base_url="https://openrouter.ai/api/v1", api_key=_get_api_key())
+
 
 def extract_bullets_from_resume(resume_text):
     prompt = """You are an expert resume reviewer.
@@ -56,7 +74,7 @@ If no such lines exist, return:
 []"""
 
     try:
-        response = client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             model="google/gemini-2.0-flash-001",
             messages=[
                 {"role": "system", "content": "You are a JSON-generating assistant. Only return the JSON array of strings as requested in the output format. No markdown formatting or extra text."},
@@ -66,7 +84,7 @@ If no such lines exist, return:
         )
 
         text = response.choices[0].message.content.strip()
-        
+
         # Strip markdown json blocks if they exist
         if text.startswith("```json"):
             text = text.replace("```json", "", 1)
@@ -74,9 +92,9 @@ If no such lines exist, return:
             text = text.replace("```", "", 1)
         if text.endswith("```"):
             text = text[:-3]
-            
+
         text = text.strip()
-        
+
         # Parse logic
         start_idx = text.find('[')
         end_idx = text.rfind(']')
@@ -86,7 +104,7 @@ If no such lines exist, return:
             if isinstance(extracted, list):
                 return extracted
         return []
-        
+
     except Exception as e:
         print(f"Error extracting bullets: {e}")
         return []

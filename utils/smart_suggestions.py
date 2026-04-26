@@ -2,7 +2,7 @@ import json
 from openai import OpenAI
 import os
 
-from utils.bullet_extractor import API_KEY, client
+from utils.bullet_extractor import _get_client
 
 def get_line_level_suggestions(resume_text):
     prompt = """You are an expert ATS resume reviewer.
@@ -28,7 +28,7 @@ Output format must be a JSON array of objects exactly like this:
 ]
 """
     try:
-        response = client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             model="google/gemini-2.0-flash-001",
             messages=[
                 {"role": "system", "content": "You are a JSON-generating assistant. Only return the JSON array of objects as requested in the output format. No markdown formatting or extra text."},

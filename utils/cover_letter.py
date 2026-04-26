@@ -2,20 +2,31 @@
 import os
 from openai import OpenAI
 
-def _get_api_key():
+_ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
+
+def _get_api_key() -> str:
     try:
         import streamlit as st
-        return st.secrets.get("OPENROUTER_API_KEY", "")
+        key = st.secrets.get("OPENROUTER_API_KEY", "")
+        if key:
+            return key
     except Exception:
-        try:
-            from dotenv import load_dotenv
-            load_dotenv()
-        except ImportError:
-            pass
-        return os.getenv("OPENROUTER_API_KEY", "")
+        pass
+    key = os.environ.get("OPENROUTER_API_KEY", "")
+    if key:
+        return key
+    try:
+        from dotenv import load_dotenv as _ld
+        _ld(dotenv_path=_ENV_PATH, override=True)
+    except Exception:
+        pass
+    return os.environ.get("OPENROUTER_API_KEY", "")
 
-_client = OpenAI(api_key=_get_api_key(), base_url="https://openrouter.ai/api/v1")
+def _get_client():
+    return OpenAI(api_key=_get_api_key(), base_url="https://openrouter.ai/api/v1")
+
 _MODEL = "openai/gpt-4o-mini"
+
 
 _TONE = {
     "Professional": "formal, confident, polished — business-appropriate language",
@@ -62,7 +73,7 @@ JOB DESCRIPTION (understand the role requirements — but use ONLY "{company}" a
 Write the complete cover letter now:"""
 
     try:
-        resp = _client.chat.completions.create(
+        resp = _get_client().chat.completions.create(
             model=_MODEL,
             messages=[
                 {

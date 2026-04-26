@@ -1,0 +1,19 @@
+{
+    "python.linting.flake8Enabled": true,
+    "python.linting.flake8Args": [
+        "--max-line-length=120"
+    ],
+    "flake8.args": [
+        "--max-line-length=120"
+    ],
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.indexing": true,
+    "python.analysis.diagnosticMode": "openFilesOnly",
+    "python.analysis.pythonPath": "C:/Users/HP/AppData/Local/Programs/Python/Python314/python.exe",
+    "python.defaultInterpreterPath": "C:/Users/HP/AppData/Local/Programs/Python/Python314/python.exe",
+    "python.analysis.extraPaths": [
+        "."
+    ],
+    "python.languageServer": "Pylance"
+}

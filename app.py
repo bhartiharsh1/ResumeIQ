@@ -1,3 +1,13 @@
+import os
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _load_dotenv(
+        dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"),
+        override=True
+    )
+except Exception:
+    pass
+
 import streamlit as st
 import re
 from utils.pdf_parser import extract_text_from_pdf

@@ -1,7 +1,7 @@
 import json
 from openai import OpenAI
 
-from utils.bullet_extractor import API_KEY, client
+from utils.bullet_extractor import _get_client
 
 
 def compare_resumes_llm(resume_a, resume_b, jd):
@@ -28,7 +28,7 @@ Return your evaluation STRICTLY as a JSON object with EXACTLY these keys:
 """
 
     try:
-        response = client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             model="google/gemini-2.0-flash-001",
             messages=[
                 {"role": "system", "content": "You are a Resume A/B Testing evaluator. Always return pure JSON."},
