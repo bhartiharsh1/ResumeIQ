@@ -2,42 +2,12 @@ import os
 import json
 import re
 from openai import OpenAI
-
-# ── Hardcoded fallback (ensures local dev always works) ───────────────────────
-_HARDCODED_KEY = "OPENROUTER_KEY_REMOVED"
-_ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
-
-
-def _get_api_key() -> str:
-    """Return OPENROUTER_API_KEY — Streamlit Cloud → env → .env → hardcoded fallback."""
-    # 1. Streamlit Cloud secrets (production)
-    try:
-        import streamlit as st
-        key = st.secrets.get("OPENROUTER_API_KEY", "")
-        if key:
-            return key
-    except Exception:
-        pass
-    # 2. Environment variable (if injected by OS / app.py load_dotenv)
-    key = os.environ.get("OPENROUTER_API_KEY", "")
-    if key:
-        return key
-    # 3. Load .env file directly
-    try:
-        from dotenv import load_dotenv as _ld
-        _ld(dotenv_path=_ENV_PATH, override=True)
-        key = os.environ.get("OPENROUTER_API_KEY", "")
-        if key:
-            return key
-    except Exception:
-        pass
-    # 4. Guaranteed local fallback — always works
-    return _HARDCODED_KEY
+from utils.config import get_openrouter_key
 
 
 def _get_client():
     """Return a fresh OpenAI client pointed at OpenRouter."""
-    return OpenAI(base_url="https://openrouter.ai/api/v1", api_key=_get_api_key())
+    return OpenAI(base_url="https://openrouter.ai/api/v1", api_key=get_openrouter_key())
 
 
 def extract_bullets_from_resume(resume_text):

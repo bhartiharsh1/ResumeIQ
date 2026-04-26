@@ -1,29 +1,11 @@
 """cover_letter.py — Generate real, personalized cover letters from resume + JD."""
-import os
 from openai import OpenAI
+from utils.config import get_openrouter_key
 
-_ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
-
-def _get_api_key() -> str:
-    try:
-        import streamlit as st
-        key = st.secrets.get("OPENROUTER_API_KEY", "")
-        if key:
-            return key
-    except Exception:
-        pass
-    key = os.environ.get("OPENROUTER_API_KEY", "")
-    if key:
-        return key
-    try:
-        from dotenv import load_dotenv as _ld
-        _ld(dotenv_path=_ENV_PATH, override=True)
-    except Exception:
-        pass
-    return os.environ.get("OPENROUTER_API_KEY", "")
 
 def _get_client():
-    return OpenAI(api_key=_get_api_key(), base_url="https://openrouter.ai/api/v1")
+    return OpenAI(api_key=get_openrouter_key(), base_url="https://openrouter.ai/api/v1")
+
 
 _MODEL = "openai/gpt-4o-mini"
 

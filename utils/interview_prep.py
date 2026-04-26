@@ -1,32 +1,14 @@
 """interview_prep.py — Predict likely interview questions from resume + JD."""
-import json, os
+import json
 from openai import OpenAI
+from utils.config import get_openrouter_key
 
-_ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
-
-def _get_api_key() -> str:
-    try:
-        import streamlit as st
-        key = st.secrets.get("OPENROUTER_API_KEY", "")
-        if key:
-            return key
-    except Exception:
-        pass
-    key = os.environ.get("OPENROUTER_API_KEY", "")
-    if key:
-        return key
-    try:
-        from dotenv import load_dotenv as _ld
-        _ld(dotenv_path=_ENV_PATH, override=True)
-    except Exception:
-        pass
-    return os.environ.get("OPENROUTER_API_KEY", "")
 
 def _get_client():
-    return OpenAI(api_key=_get_api_key(), base_url="https://openrouter.ai/api/v1")
+    return OpenAI(api_key=get_openrouter_key(), base_url="https://openrouter.ai/api/v1")
+
 
 _MODEL = "google/gemini-2.0-flash-001"
-
 
 
 def predict_interview_questions(resume_text: str, jd_text: str = "") -> dict:
@@ -49,7 +31,7 @@ Output ONLY a JSON object:
             messages=[{"role": "system", "content": "Return only valid JSON."}, {"role": "user", "content": prompt}],
             temperature=0.7
         )
-        text = resp.choices[0].message.content.strip().replace("```json","").replace("```","").strip()
+        text = resp.choices[0].message.content.strip().replace("```json", "").replace("```", "").strip()
         s, e = text.find("{"), text.rfind("}")
         if s != -1 and e != -1:
             return json.loads(text[s:e+1])
