@@ -282,6 +282,42 @@ page = st.sidebar.radio("Go to:", ["📊 Single Analyzer", "⚖️ A/B Testing E
 if "is_pro" not in st.session_state:
     st.session_state.is_pro = False
 
+# ── VALID ACCESS CODES (set these in .streamlit/secrets.toml as pro_codes) ────
+try:
+    _raw = st.secrets.get("pro_codes", "")
+    VALID_PRO_CODES = set(c.strip() for c in _raw.split(",") if c.strip())
+except Exception:
+    VALID_PRO_CODES = set()
+# Always include the default fallback codes
+VALID_PRO_CODES.update({"RESUMEIQ-PRO", "RIQA-2024", "UNLOCK-PRO-IQ"})
+
+# ── SIDEBAR PRO UNLOCK WIDGET ──────────────────────────────────────────────────
+st.sidebar.divider()
+if not st.session_state.is_pro:
+    st.sidebar.markdown("#### 🔐 Pro Access")
+    st.sidebar.markdown(
+        '<small style="color:#9ca3af;">Paid? Enter your code below to unlock all Pro features.</small>',
+        unsafe_allow_html=True
+    )
+    _code_input = st.sidebar.text_input(
+        "Access Code", type="password", key="_pro_code", placeholder="Enter code..."
+    )
+    if st.sidebar.button("🔓 Unlock Pro", key="_unlock_btn", use_container_width=True):
+        if _code_input.strip().upper() in {c.upper() for c in VALID_PRO_CODES}:
+            st.session_state.is_pro = True
+            st.rerun()
+        else:
+            st.sidebar.error("❌ Invalid code. Try again.")
+    st.sidebar.markdown(
+        '<a href="https://rzp.io/rzp/OP1Bn0k" target="_blank" style="color:#f59e0b;font-size:0.8rem;">💳 Buy Pro (₹79) →</a>',
+        unsafe_allow_html=True
+    )
+else:
+    st.sidebar.success("✅ Pro Active — All features unlocked!")
+    if st.sidebar.button("🔒 Sign Out of Pro", key="_signout_btn", use_container_width=True):
+        st.session_state.is_pro = False
+        st.rerun()
+
 # ── PAYWALL CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -610,23 +646,93 @@ if page == "🎯 Career Tools":
     with tab3:
         st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
         st.subheader("🎤 Interview Question Predictor")
-        pro_wall("Interview Predictor", [
-            "AI-generated behavioral, technical & role-specific questions",
-            "Personalized to your resume background",
-            "Company-specific questions when JD is provided",
-            "Practice-ready format with Q-by-Q breakdown",
-        ])
+        if not st.session_state.is_pro:
+            pro_wall("Interview Predictor", [
+                "AI-generated behavioral, technical & role-specific questions",
+                "Personalized to your resume background",
+                "Company-specific questions when JD is provided",
+                "Practice-ready format with Q-by-Q breakdown",
+            ])
+        else:
+            st.write("Upload your resume to generate likely interview questions specific to your background and target role.")
+            iq_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"], key="iq_resume")
+            iq_jd = st.text_area("Job Description (optional — unlocks company & role-specific questions)", height=120, key="iq_jd")
+            if st.button("Generate Questions 🎤", key="iq_btn"):
+                if not iq_resume:
+                    st.error("Please upload your resume.")
+                else:
+                    with st.spinner("Analyzing your profile and predicting questions..."):
+                        iq_text = extract_text_from_pdf(iq_resume)
+                        from utils.interview_prep import predict_interview_questions
+                        st.session_state["iq_result"] = predict_interview_questions(iq_text, iq_jd)
+            if "iq_result" in st.session_state:
+                res = st.session_state["iq_result"]
+                if "error" in res:
+                    st.error(f"❌ {res['error']}")
+                else:
+                    st.divider()
+                    st.success("✅ Questions ready — use these to practice before your interview.")
+                    cats = [
+                        ("behavioral",       "🧠 Behavioral",       "#e74c3c"),
+                        ("technical",        "⚙️ Technical",        "#3498db"),
+                        ("role_specific",    "🎯 Role-Specific",    "#2ecc71"),
+                        ("company_specific", "🏢 Company-Specific", "#f39c12"),
+                    ]
+                    for key, label, color in cats:
+                        qs = res.get(key, [])
+                        if qs:
+                            st.markdown(f"**{label}**")
+                            for i, q in enumerate(qs, 1):
+                                st.markdown(
+                                    f'<div class="ct-qcard" style="border-left-color:{color};">'
+                                    f'<span style="color:#888;font-size:0.75rem;">Q{i}</span><br>{q}</div>',
+                                    unsafe_allow_html=True
+                                )
+                            st.write("")
 
     # ── TAB 4: Cold Outreach Writer (🔒 PRO) ─────────────────────────────────
     with tab4:
         st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
         st.subheader("📨 Cold Outreach Writer")
-        pro_wall("Cold Email & LinkedIn Outreach Generator", [
-            "Personalized cold emails drafted from your resume",
-            "LinkedIn connection messages (≤80 words, high-reply rate)",
-            "Tailored for Recruiter, Alumni, Referral or Hiring Manager",
-            "Written to actually get responses — not generic templates",
-        ])
+        if not st.session_state.is_pro:
+            pro_wall("Cold Email & LinkedIn Outreach Generator", [
+                "Personalized cold emails drafted from your resume",
+                "LinkedIn connection messages (≤80 words, high-reply rate)",
+                "Tailored for Recruiter, Alumni, Referral or Hiring Manager",
+                "Written to actually get responses — not generic templates",
+            ])
+        else:
+            st.write("Generate cold emails and LinkedIn messages personalized from your resume — written to actually get replies.")
+            co_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"], key="co_resume")
+            c1, c2, c3 = st.columns(3)
+            with c1: co_company = st.text_input("Target Company", key="co_company")
+            with c2: co_role    = st.text_input("Target Role",    key="co_role")
+            with c3: co_ptype   = st.selectbox("Writing to...", ["Recruiter", "Alumni", "Referral", "Hiring Manager"], key="co_ptype")
+            co_pname = st.text_input("Their Name (optional — makes it more personal)", key="co_pname")
+            if st.button("Generate Outreach 📨", key="co_btn"):
+                if not all([co_resume, co_company.strip(), co_role.strip()]):
+                    st.error("Please upload resume and fill in company + role.")
+                else:
+                    with st.spinner("Writing your outreach messages..."):
+                        co_text = extract_text_from_pdf(co_resume)
+                        from utils.cold_outreach import generate_outreach
+                        st.session_state["co_result"] = generate_outreach(co_text, co_company, co_role, co_ptype, co_pname)
+            if "co_result" in st.session_state:
+                res = st.session_state["co_result"]
+                if "error" in res:
+                    st.error(f"❌ {res['error']}")
+                else:
+                    st.divider()
+                    st.success("✅ Outreach messages ready!")
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        st.markdown('<div class="ct-label">📧 Cold Email</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="ct-subject">Subject: <b>{res.get("email_subject","")}</b></div>', unsafe_allow_html=True)
+                        st.text_area("Email body — select all to copy", value=res.get("email_body",""), height=220, key="co_email_display")
+                    with col_b:
+                        st.markdown('<div class="ct-label">🔗 LinkedIn Message</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="ct-subject">Connection request note (≤80 words)</div>', unsafe_allow_html=True)
+                        st.text_area("LinkedIn message — select all to copy", value=res.get("linkedin_message",""), height=220, key="co_li_display")
 
     st.stop()
 
@@ -638,107 +744,80 @@ if page == "⚖️ A/B Testing Engine":
     st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
     st.write("Mathematically compare two resume versions against a job description — data-driven winner selection.")
 
-    pro_wall("A/B Testing Engine", [
-        "Upload Resume A vs Resume B — AI picks the winner",
-        "Full ATS format score + semantic JD alignment comparison",
-        "Expert LLM verdict with key difference breakdown",
-        "Recruiter-perspective summary on which resume to submit",
-    ])
-    st.stop()
+    if not st.session_state.is_pro:
+        pro_wall("A/B Testing Engine", [
+            "Upload Resume A vs Resume B — AI picks the winner",
+            "Full ATS format score + semantic JD alignment comparison",
+            "Expert LLM verdict with key difference breakdown",
+            "Recruiter-perspective summary on which resume to submit",
+        ])
+    else:
+        col1, col2 = st.columns(2)
+        with col1:
+            res_a_file = st.file_uploader("Upload Resume A (PDF)", type=["pdf"], key="res_a")
+        with col2:
+            res_b_file = st.file_uploader("Upload Resume B (PDF)", type=["pdf"], key="res_b")
 
+        jd_ab = st.text_area("Paste Target Job Description", key="jd_ab", height=150)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        res_a_file = st.file_uploader(
-            "Upload Resume A (PDF)", type=["pdf"], key="res_a"
-        )
-    with col2:
-        res_b_file = st.file_uploader(
-            "Upload Resume B (PDF)", type=["pdf"], key="res_b"
-        )
+        if st.button("Compare Resumes ⚖️"):
+            if not res_a_file or not res_b_file or not jd_ab:
+                st.error("Please upload both resumes and provide a job description.")
+            else:
+                with st.spinner("Analyzing structures and querying LLM for Recruiter Feedback..."):
+                    text_a = extract_text_from_pdf(res_a_file)
+                    text_b = extract_text_from_pdf(res_b_file)
+                    score_a, ats_data_a = real_ats_score(text_a)
+                    score_b, ats_data_b = real_ats_score(text_b)
+                    from utils.jd_file import model, split_text, cosine_similarity
+                    import numpy as np
 
-    jd_ab = st.text_area("Paste Target Job Description", key="jd_ab", height=150)
+                    def get_jd_score(res_txt, jd_txt):
+                        r_chunks = split_text(res_txt)
+                        j_chunks = split_text(jd_txt)
+                        if not r_chunks or not j_chunks:
+                            return 0
+                        r_emb = model.encode(r_chunks)
+                        j_emb = model.encode(j_chunks)
+                        sim = cosine_similarity(np.mean(r_emb, axis=0), np.mean(j_emb, axis=0))
+                        return min(max(0, float(sim) * 100), 100)
 
-    if st.button("Compare Resumes ⚖️"):
-        if not res_a_file or not res_b_file or not jd_ab:
-            st.error("Please upload both resumes and provide a job description.")
-        else:
-            with st.spinner(
-                "Analyzing structures and querying LLM for Recruiter Feedback..."
-            ):
-                text_a = extract_text_from_pdf(res_a_file)
-                text_b = extract_text_from_pdf(res_b_file)
+                    jd_a = get_jd_score(text_a, jd_ab)
+                    jd_b = get_jd_score(text_b, jd_ab)
+                    overall_a = (score_a * 0.4) + (jd_a * 0.6)
+                    overall_b = (score_b * 0.4) + (jd_b * 0.6)
 
-                # ATS Math Scores
-                score_a, ats_data_a = real_ats_score(text_a)
-                score_b, ats_data_b = real_ats_score(text_b)
+                    st.divider()
+                    st.subheader("🔢 Quantitative Comparison")
+                    colA, colB = st.columns(2)
+                    with colA:
+                        st.write("### Resume A")
+                        st.metric("Overall ATS Match", f"{overall_a:.1f}/100")
+                        st.caption(f"Format Score: {score_a}/100 | Semantic Alignment: {jd_a:.1f}%")
+                    with colB:
+                        st.write("### Resume B")
+                        st.metric("Overall ATS Match", f"{overall_b:.1f}/100")
+                        st.caption(f"Format Score: {score_b}/100 | Semantic Alignment: {jd_b:.1f}%")
 
-                # Dynamic JD Alignment Math
-                from utils.jd_file import model, split_text, cosine_similarity
-                import numpy as np
-
-                def get_jd_score(res_txt, jd_txt):
-                    r_chunks = split_text(res_txt)
-                    j_chunks = split_text(jd_txt)
-                    if not r_chunks or not j_chunks:
-                        return 0
-                    r_emb = model.encode(r_chunks)
-                    j_emb = model.encode(j_chunks)
-                    sim = cosine_similarity(
-                        np.mean(r_emb, axis=0), np.mean(j_emb, axis=0)
-                    )
-                    return min(max(0, float(sim) * 100), 100)
-
-                jd_a = get_jd_score(text_a, jd_ab)
-                jd_b = get_jd_score(text_b, jd_ab)
-
-                overall_a = (score_a * 0.4) + (jd_a * 0.6)
-                overall_b = (score_b * 0.4) + (jd_b * 0.6)
-
-                st.divider()
-                st.subheader("🔢 Quantitative Comparison")
-
-                colA, colB = st.columns(2)
-                with colA:
-                    st.write("### Resume A")
-                    st.metric("Overall ATS Match", f"{overall_a:.1f}/100")
-                    st.caption(
-                        f"Format Score: {score_a}/100 | Semantic Alignment: {jd_a:.1f}%"
-                    )
-
-                with colB:
-                    st.write("### Resume B")
-                    st.metric("Overall ATS Match", f"{overall_b:.1f}/100")
-                    st.caption(
-                        f"Format Score: {score_b}/100 | Semantic Alignment: {jd_b:.1f}%"
-                    )
-
-                st.divider()
-                st.subheader("🤖 Expert LLM Verdict")
-
-                from utils.ab_testing import compare_resumes_llm
-
-                feedback = compare_resumes_llm(text_a, text_b, jd_ab)
-
-                if "error" in feedback:
-                    st.error(f"Error calling AI Evaluator: {feedback['error']}")
-                else:
-                    winner = feedback.get("winner", "Unknown")
-                    if winner == "Resume A":
-                        st.success(f"🏆 Ultimate Winner: **{winner}**")
-                    elif winner == "Resume B":
-                        st.success(f"🏆 Ultimate Winner: **{winner}**")
+                    st.divider()
+                    st.subheader("🤖 Expert LLM Verdict")
+                    from utils.ab_testing import compare_resumes_llm
+                    feedback = compare_resumes_llm(text_a, text_b, jd_ab)
+                    if "error" in feedback:
+                        st.error(f"Error calling AI Evaluator: {feedback['error']}")
                     else:
-                        st.warning(f"🤝 Result: **{winner}**")
+                        winner = feedback.get("winner", "Unknown")
+                        if winner in ("Resume A", "Resume B"):
+                            st.success(f"🏆 Ultimate Winner: **{winner}**")
+                        else:
+                            st.warning(f"🤝 Result: **{winner}**")
+                        st.write("### Key Comparative Advantages:")
+                        for diff in feedback.get("key_differences", []):
+                            st.write(f"- {diff}")
+                        st.write("### Recruiter Summary View:")
+                        st.info(feedback.get("final_verdict", ""))
 
-                    st.write("### Key Comparative Advantages:")
-                    for diff in feedback.get("key_differences", []):
-                        st.write(f"- {diff}")
-
-                    st.write("### Recruiter Summary View:")
-                    st.info(feedback.get("final_verdict", ""))
-
-    st.stop()  # Prevents rendering the Single Analyzer code below this block!
+    st.stop()
 
 st.title("Single Resume Analyzer")
 st.write("Real ATS Scoring + Smart Resume Feedback")
@@ -809,36 +888,101 @@ if uploaded_file:
     # -------- PLACEMENT PROBABILITY — 🔒 PRO --------
     st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
     st.subheader("🎯 Placement Probability Engine")
-    pro_wall("Placement Probability Predictor", [
-        "Predicts your % chance of getting shortlisted",
-        "Recruiter-grade benchmark modeling (vs 1000s of applicants)",
-        "Applicant Tier rating (Top 10%, Average, Below Average)",
-        "Market Benchmark progress bar with insight",
-    ])
+    if not st.session_state.is_pro:
+        pro_wall("Placement Probability Predictor", [
+            "Predicts your % chance of getting shortlisted",
+            "Recruiter-grade benchmark modeling (vs 1000s of applicants)",
+            "Applicant Tier rating (Top 10%, Average, Below Average)",
+            "Market Benchmark progress bar with insight",
+        ])
+    else:
+        from utils.placement import calculate_placement_probability
+        skill_match_percentage = (len(exact) / max(1, len(exact) + len(missing))) * 100
+        impact_res = impact_score(resume_text)
+        prob_data = calculate_placement_probability(score, skill_match_percentage, impact_res)
+        p_val = prob_data["probability"]
+        c1, c2, c3 = st.columns([1, 1.2, 1.2])
+        with c1:
+            st.metric("Shortlist Probability", f"{p_val}%", delta=f"{p_val - 45.0:.1f}% vs Average")
+        with c2:
+            st.metric("Applicant Tier", prob_data["tier"])
+        with c3:
+            st.info(f"💡 {prob_data['insight']}")
+        st.write("### Market Benchmark Comparison")
+        st.progress(int(p_val))
+        st.caption(f"**Your Score:** {p_val}% | **Average Applicant:** ~45% | **Top 10% Cutoff:** ~85%")
 
     st.divider()
 
     # -------- SMART SUGGESTIONS — 🔒 PRO --------
     st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
     st.subheader("💡 Smart Suggestions (Resume Worded AI)")
-    pro_wall("AI-Powered Resume Suggestions", [
-        "Line-by-line feedback on every bullet point",
-        "Confidence-scored issue detection",
-        "Side-by-side original vs improved suggestions",
-        "Personalized to your target role",
-    ])
+    if not st.session_state.is_pro:
+        pro_wall("AI-Powered Resume Suggestions", [
+            "Line-by-line feedback on every bullet point",
+            "Confidence-scored issue detection",
+            "Side-by-side original vs improved suggestions",
+            "Personalized to your target role",
+        ])
+    else:
+        with st.spinner("Analyzing resume for targeted improvements..."):
+            from utils.smart_suggestions import get_line_level_suggestions
+            suggestions_list = get_line_level_suggestions(resume_text)
+        if suggestions_list:
+            if "error" in suggestions_list[0]:
+                st.error(f"❌ Smart Suggestions Error: {suggestions_list[0]['error']}")
+            else:
+                for idx, sug in enumerate(suggestions_list):
+                    with st.expander(f"⚠️ Issue: {sug.get('issue', 'Needs Improvement')} (Confidence: {sug.get('confidence_score', 0)})"):
+                        st.write("**Original Line:**")
+                        st.error(sug.get('original_line'))
+                        st.write("**Suggested Improvement:**")
+                        st.success(sug.get('improved_suggestion'))
+        else:
+            st.info("No major line-level issues found! Your resume bullets look strong.")
 
     st.divider()
 
     # -------- AI RESUME REWRITER — 🔒 PRO --------
     st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
     st.subheader("✨ AI Resume Rewriter")
-    pro_wall("AI Resume Rewriter", [
-        "Select any bullet from your resume to instantly upgrade",
-        "Basic Polish or Aggressive Transformation modes",
-        "Before vs After comparison with ATS-optimized output",
-        "AI feedback explaining every rewrite decision",
-    ])
+    if not st.session_state.is_pro:
+        pro_wall("AI Resume Rewriter", [
+            "Select any bullet from your resume to instantly upgrade",
+            "Basic Polish or Aggressive Transformation modes",
+            "Before vs After comparison with ATS-optimized output",
+            "AI feedback explaining every rewrite decision",
+        ])
+    else:
+        with st.spinner("Intelligently scanning resume for lines to improve..."):
+            from utils.bullet_extractor import extract_bullets_from_resume
+            valid_bullets_raw = extract_bullets_from_resume(resume_text)
+        valid_bullets = list(dict.fromkeys(valid_bullets_raw))
+        options = ["📝 Type or paste a custom bullet point..."] + valid_bullets
+        selected_option = st.selectbox("Select a bullet from your resume to enhance:", options)
+        if selected_option == "📝 Type or paste a custom bullet point...":
+            bullet_to_rewrite = st.text_area("Paste original bullet point:")
+        else:
+            bullet_to_rewrite = selected_option
+        if bullet_to_rewrite:
+            strength = st.radio("Rewrite Strength", ["Basic Polish", "Aggressive Transformation"], horizontal=True)
+            if st.button("Rewrite Bullet 🚀"):
+                with st.spinner("Analyzing and rewriting..."):
+                    from utils.llm_rewriter import rewrite_bullet
+                    result = rewrite_bullet(bullet_to_rewrite, selected_profile, strength)
+                    if "error" in result:
+                        st.error(f"Failed to generate rewrite: {result['error']}")
+                    else:
+                        st.success("Bullet Transformed Successfully!")
+                        colA, colB = st.columns(2)
+                        with colA:
+                            st.subheader("🔴 Before")
+                            st.error(bullet_to_rewrite)
+                        with colB:
+                            st.subheader("🟢 After (Optimized)")
+                            st.success(result.get("rewritten_bullet", "Error: Missing response data"))
+                        st.write("💡 **AI Feedback:**")
+                        st.info(result.get("feedback_reason", "No feedback provided by model."))
 
     st.divider()
 
