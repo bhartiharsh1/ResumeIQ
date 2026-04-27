@@ -282,28 +282,54 @@ page = st.sidebar.radio("Go to:", ["📊 Single Analyzer", "⚖️ A/B Testing E
 if "is_pro" not in st.session_state:
     st.session_state.is_pro = False
 
-# ── VALID ACCESS CODES (set these in .streamlit/secrets.toml as pro_codes) ────
+# ── ADMIN / HARDCODED CODES (fallback + owner access) ─────────────────────────
 try:
     _raw = st.secrets.get("pro_codes", "")
     VALID_PRO_CODES = set(c.strip() for c in _raw.split(",") if c.strip())
 except Exception:
     VALID_PRO_CODES = set()
-# Always include the default fallback codes
 VALID_PRO_CODES.update({"RESUMEIQ-PRO", "RIQA-2024", "UNLOCK-PRO-IQ"})
+
+# ── WEBHOOK SERVER URL (set in secrets.toml as webhook_url) ───────────────────
+try:
+    WEBHOOK_SERVER_URL = st.secrets.get("webhook_url", "").rstrip("/")
+except Exception:
+    WEBHOOK_SERVER_URL = ""
+
+def _validate_pro_code(code: str) -> bool:
+    """Check code against hardcoded list OR the webhook server (customer codes)."""
+    code_up = code.strip().upper()
+    # 1. Hardcoded admin codes
+    if code_up in {c.upper() for c in VALID_PRO_CODES}:
+        return True
+    # 2. Dynamically generated codes stored in Supabase via webhook server
+    if WEBHOOK_SERVER_URL:
+        try:
+            import requests as _req
+            resp = _req.get(
+                f"{WEBHOOK_SERVER_URL}/validate",
+                params={"code": code_up},
+                timeout=5
+            )
+            if resp.status_code == 200:
+                return resp.json().get("valid", False)
+        except Exception:
+            pass
+    return False
 
 # ── SIDEBAR PRO UNLOCK WIDGET ──────────────────────────────────────────────────
 st.sidebar.divider()
 if not st.session_state.is_pro:
     st.sidebar.markdown("#### 🔐 Pro Access")
     st.sidebar.markdown(
-        '<small style="color:#9ca3af;">Paid? Enter your code below to unlock all Pro features.</small>',
+        '<small style="color:#9ca3af;">Paid? Enter the code from your email to unlock all Pro features.</small>',
         unsafe_allow_html=True
     )
     _code_input = st.sidebar.text_input(
-        "Access Code", type="password", key="_pro_code", placeholder="Enter code..."
+        "Access Code", type="password", key="_pro_code", placeholder="RIQ-XXXX-XXXX-XXXX"
     )
     if st.sidebar.button("🔓 Unlock Pro", key="_unlock_btn", use_container_width=True):
-        if _code_input.strip().upper() in {c.upper() for c in VALID_PRO_CODES}:
+        if _validate_pro_code(_code_input):
             st.session_state.is_pro = True
             st.rerun()
         else:
@@ -317,6 +343,7 @@ else:
     if st.sidebar.button("🔒 Sign Out of Pro", key="_signout_btn", use_container_width=True):
         st.session_state.is_pro = False
         st.rerun()
+
 
 # ── PAYWALL CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
