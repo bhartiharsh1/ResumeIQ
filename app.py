@@ -278,6 +278,72 @@ div[data-baseweb="select"] > div {
 st.sidebar.title("🧭 Navigation")
 page = st.sidebar.radio("Go to:", ["📊 Single Analyzer", "⚖️ A/B Testing Engine", "🎯 Career Tools", "🙋 Resume Help"])
 
+# ── PRO SESSION STATE ──────────────────────────────────────────────────────────
+if "is_pro" not in st.session_state:
+    st.session_state.is_pro = False
+
+# ── PAYWALL CSS ────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+.paywall-card {
+    background: linear-gradient(135deg, #0f1520 0%, #160e2a 100%);
+    border: 1px solid rgba(245,158,11,0.4);
+    border-radius: 18px;
+    padding: 36px 40px;
+    text-align: center;
+    margin: 28px 0;
+    box-shadow: 0 8px 40px rgba(245,158,11,0.13), 0 2px 0 rgba(255,255,255,0.03) inset;
+}
+.paywall-lock { font-size: 3rem; margin-bottom: 10px; }
+.paywall-title {
+    font-size: 1.25rem; font-weight: 800;
+    background: linear-gradient(135deg, #f59e0b, #fbbf24);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; margin-bottom: 16px;
+}
+.paywall-bullets {
+    list-style: none; padding: 0; margin: 0 0 24px 0;
+    color: #9ca3af; font-size: 0.9rem; line-height: 2.2;
+}
+.paywall-bullets li::before { content: "✦  "; color: #f59e0b; }
+.paywall-btn {
+    display: inline-block;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #000 !important; font-weight: 800; font-size: 1rem;
+    padding: 14px 40px; border-radius: 30px; text-decoration: none !important;
+    box-shadow: 0 6px 28px rgba(245,158,11,0.45); letter-spacing: 0.3px;
+}
+.paywall-note { margin-top: 14px; color: #6b7280; font-size: 0.78rem; }
+.badge-free {
+    display: inline-block; background: rgba(16,185,129,0.15);
+    border: 1px solid rgba(16,185,129,0.4); color: #10b981;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 1.2px;
+    padding: 2px 9px; border-radius: 20px; text-transform: uppercase; vertical-align: middle;
+}
+.badge-pro {
+    display: inline-block; background: rgba(245,158,11,0.15);
+    border: 1px solid rgba(245,158,11,0.4); color: #f59e0b;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 1.2px;
+    padding: 2px 9px; border-radius: 20px; text-transform: uppercase; vertical-align: middle;
+}
+</style>
+""", unsafe_allow_html=True)
+
+def pro_wall(feature_name, bullets):
+    """Render a locked paywall card for a Pro feature."""
+    bullets_html = "".join(f"<li>{b}</li>" for b in bullets)
+    st.markdown(f"""
+    <div class="paywall-card">
+        <div class="paywall-lock">🔒</div>
+        <div class="paywall-title">{feature_name} — Pro Feature</div>
+        <ul class="paywall-bullets">{bullets_html}</ul>
+        <a class="paywall-btn" href="https://rzp.io/rzp/OP1Bn0k" target="_blank">
+            ⚡ Upgrade to Pro — Unlock Full Access
+        </a>
+        <div class="paywall-note">One-time payment · Instant access · No subscription needed</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # 🙋  RESUME HELP REQUEST PAGE
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -426,53 +492,13 @@ if page == "🎯 Career Tools":
     """, unsafe_allow_html=True)
 
     st.title("🎯 Career Tools")
-    st.markdown('<p style="color:#8eb8f0;font-size:0.95rem;margin-bottom:1.5rem;">Interview prep, cover letters, outreach messages, and application tracking — all in one place.</p>', unsafe_allow_html=True)
+    st.markdown('<p style="color:#8eb8f0;font-size:0.95rem;margin-bottom:1.5rem;">Cover letters &amp; tracking are free. Pro tools unlock interview prep and outreach.</p>', unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["🎤 Interview Predictor", "✉️ Cover Letter", "📨 Cold Outreach", "📋 Application Tracker"])
+    tab1, tab2, tab3, tab4 = st.tabs(["✉️ Cover Letter  🆓", "📋 Application Tracker  🆓", "🎤 Interview Predictor  🔒", "📨 Cold Outreach  🔒"])
 
-    # ── TAB 1: Interview Predictor ────────────────────────────────────────────
+    # ── TAB 1: Cover Letter Generator (FREE) ─────────────────────────────────
     with tab1:
-        st.subheader("🎤 Interview Question Predictor")
-        st.write("Upload your resume to generate likely interview questions specific to your background and target role.")
-        iq_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"], key="iq_resume")
-        iq_jd = st.text_area("Job Description (optional — unlocks company & role-specific questions)", height=120, key="iq_jd")
-
-        if st.button("Generate Questions 🎤", key="iq_btn"):
-            if not iq_resume:
-                st.error("Please upload your resume.")
-            else:
-                with st.spinner("Analyzing your profile and predicting questions..."):
-                    iq_text = extract_text_from_pdf(iq_resume)
-                    from utils.interview_prep import predict_interview_questions
-                    st.session_state["iq_result"] = predict_interview_questions(iq_text, iq_jd)
-
-        if "iq_result" in st.session_state:
-            res = st.session_state["iq_result"]
-            if "error" in res:
-                st.error(f"❌ {res['error']}")
-            else:
-                st.divider()
-                st.success("✅ Questions ready — use these to practice before your interview.")
-                cats = [
-                    ("behavioral",      "🧠 Behavioral",        "#e74c3c"),
-                    ("technical",       "⚙️ Technical",         "#3498db"),
-                    ("role_specific",   "🎯 Role-Specific",     "#2ecc71"),
-                    ("company_specific","🏢 Company-Specific",  "#f39c12"),
-                ]
-                for key, label, color in cats:
-                    qs = res.get(key, [])
-                    if qs:
-                        st.markdown(f"**{label}**")
-                        for i, q in enumerate(qs, 1):
-                            st.markdown(
-                                f'<div class="ct-qcard" style="border-left-color:{color};">'
-                                f'<span style="color:#888;font-size:0.75rem;">Q{i}</span><br>{q}</div>',
-                                unsafe_allow_html=True
-                            )
-                        st.write("")
-
-    # ── TAB 2: Cover Letter Generator ────────────────────────────────────────
-    with tab2:
+        st.markdown('<span class="badge-free">Free</span>', unsafe_allow_html=True)
         st.subheader("✉️ Cover Letter Generator")
         st.write("Auto-draft a personalized, ATS-friendly cover letter from your resume + job description.")
         cl_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"], key="cl_resume")
@@ -501,63 +527,25 @@ if page == "🎯 Career Tools":
                 st.success(f"✅ Cover letter ready! ({res['word_count']} words) — Select all inside the box and copy.")
                 st.text_area("📄 Your Cover Letter", value=res["cover_letter"], height=380, key="cl_display")
 
-    # ── TAB 3: Cold Outreach Writer ───────────────────────────────────────────
-    with tab3:
-        st.subheader("📨 Cold Outreach Writer")
-        st.write("Generate cold emails and LinkedIn messages personalized from your resume — written to actually get replies.")
-        co_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"], key="co_resume")
-        c1, c2, c3 = st.columns(3)
-        with c1: co_company = st.text_input("Target Company", key="co_company")
-        with c2: co_role    = st.text_input("Target Role",    key="co_role")
-        with c3: co_ptype   = st.selectbox("Writing to...", ["Recruiter", "Alumni", "Referral", "Hiring Manager"], key="co_ptype")
-        co_pname = st.text_input("Their Name (optional — makes it more personal)", key="co_pname")
-
-        if st.button("Generate Outreach 📨", key="co_btn"):
-            if not all([co_resume, co_company.strip(), co_role.strip()]):
-                st.error("Please upload resume and fill in company + role.")
-            else:
-                with st.spinner("Writing your outreach messages..."):
-                    co_text = extract_text_from_pdf(co_resume)
-                    from utils.cold_outreach import generate_outreach
-                    st.session_state["co_result"] = generate_outreach(co_text, co_company, co_role, co_ptype, co_pname)
-
-        if "co_result" in st.session_state:
-            res = st.session_state["co_result"]
-            if "error" in res:
-                st.error(f"❌ {res['error']}")
-            else:
-                st.divider()
-                st.success("✅ Outreach messages ready!")
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.markdown('<div class="ct-label">📧 Cold Email</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="ct-subject">Subject: <b>{res.get("email_subject","")}</b></div>', unsafe_allow_html=True)
-                    st.text_area("Email body — select all to copy", value=res.get("email_body",""), height=220, key="co_email_display")
-                with col_b:
-                    st.markdown('<div class="ct-label">🔗 LinkedIn Message</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="ct-subject">Connection request note (≤80 words)</div>', unsafe_allow_html=True)
-                    st.text_area("LinkedIn message — select all to copy", value=res.get("linkedin_message",""), height=220, key="co_li_display")
-
-    # ── TAB 4: Application Tracker ────────────────────────────────────────────
-    with tab4:
+    # ── TAB 2: Application Tracker (FREE basic) ───────────────────────────────
+    with tab2:
         from utils.app_tracker import (load_applications, add_application,
                                        update_stage, delete_application, get_stats, STAGES)
+        st.markdown('<span class="badge-free">Free</span>', unsafe_allow_html=True)
         st.subheader("📋 Application Tracker")
         st.write("Track every application — stage-by-stage. Saved to disk, persists across sessions.")
 
         apps = load_applications()
         stats = get_stats(apps)
 
-        # Metrics row
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("📨 Total Applied",    stats["total"])
-        m2.metric("✅ Shortlisted",       stats["by_stage"].get("Shortlisted", 0) + stats["by_stage"].get("Interview", 0))
-        m3.metric("🏆 Offer Rate",        f"{stats['offer_rate']}%")
-        m4.metric("🌟 Best Resume Ver.",  f"{stats['best_resume']} ({stats['best_rate']}%)" if stats['best_resume'] != 'N/A' else "N/A")
+        m1.metric("📨 Total Applied",   stats["total"])
+        m2.metric("✅ Shortlisted",      stats["by_stage"].get("Shortlisted", 0) + stats["by_stage"].get("Interview", 0))
+        m3.metric("🏆 Offer Rate",       f"{stats['offer_rate']}%")
+        m4.metric("🌟 Best Resume Ver.", f"{stats['best_resume']} ({stats['best_rate']}%)" if stats['best_resume'] != 'N/A' else "N/A")
 
         st.divider()
 
-        # Add new application form
         with st.expander("➕ Add New Application", expanded=(len(apps) == 0)):
             with st.form("add_app_form"):
                 fa1, fa2 = st.columns(2)
@@ -579,7 +567,6 @@ if page == "🎯 Career Tools":
                         st.success(f"✅ Added {new_company} — {new_role}")
                         st.rerun()
 
-        # Applications list
         st.divider()
         if not apps:
             st.info("No applications tracked yet. Add your first one above!")
@@ -619,14 +606,46 @@ if page == "🎯 Career Tools":
                             st.rerun()
                     st.write("")
 
+    # ── TAB 3: Interview Predictor (🔒 PRO) ──────────────────────────────────
+    with tab3:
+        st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
+        st.subheader("🎤 Interview Question Predictor")
+        pro_wall("Interview Predictor", [
+            "AI-generated behavioral, technical & role-specific questions",
+            "Personalized to your resume background",
+            "Company-specific questions when JD is provided",
+            "Practice-ready format with Q-by-Q breakdown",
+        ])
+
+    # ── TAB 4: Cold Outreach Writer (🔒 PRO) ─────────────────────────────────
+    with tab4:
+        st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
+        st.subheader("📨 Cold Outreach Writer")
+        pro_wall("Cold Email & LinkedIn Outreach Generator", [
+            "Personalized cold emails drafted from your resume",
+            "LinkedIn connection messages (≤80 words, high-reply rate)",
+            "Tailored for Recruiter, Alumni, Referral or Hiring Manager",
+            "Written to actually get responses — not generic templates",
+        ])
+
     st.stop()
+
+
 
 if page == "⚖️ A/B Testing Engine":
 
     st.title("⚖️ Resume A/B Testing Engine")
-    st.write(
-        "Upload two versions of your resume alongside a Job Description to mathematically and intuitively compare which one will perform better."
-    )
+    st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
+    st.write("Mathematically compare two resume versions against a job description — data-driven winner selection.")
+
+    pro_wall("A/B Testing Engine", [
+        "Upload Resume A vs Resume B — AI picks the winner",
+        "Full ATS format score + semantic JD alignment comparison",
+        "Expert LLM verdict with key difference breakdown",
+        "Recruiter-perspective summary on which resume to submit",
+    ])
+    st.stop()
+
 
     col1, col2 = st.columns(2)
     with col1:
@@ -752,10 +771,11 @@ if uploaded_file:
 
     st.divider()
 
-    # -------- SKILLS --------
+    # -------- SKILLS — FREE --------
     present, missing, exact = extract_skills(resume_text, selected_profile, SKILLS_DB)
 
-    st.subheader(" Skills Analysis")
+    st.markdown('<span class="badge-free">Free</span>', unsafe_allow_html=True)
+    st.subheader("🧩 Skills Analysis")
 
     col1, col2 = st.columns(2)
 
@@ -769,7 +789,8 @@ if uploaded_file:
 
     st.divider()
 
-    # -------- REAL ATS --------
+    # -------- REAL ATS — FREE --------
+    st.markdown('<span class="badge-free">Free</span>', unsafe_allow_html=True)
     st.subheader("🤖 ATS Score")
 
     score, ats_data = real_ats_score(resume_text)
@@ -784,128 +805,45 @@ if uploaded_file:
         st.error("🚨 Needs Formatting Improvement")
 
     st.divider()
+
+    # -------- PLACEMENT PROBABILITY — 🔒 PRO --------
+    st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
     st.subheader("🎯 Placement Probability Engine")
-    st.write(
-        "Predicts your statistical likelihood of getting shortlisted using recruiter-grade benchmark modeling."
-    )
-
-    from utils.placement import calculate_placement_probability
-
-    # Calculate skill match and impact for the predictor
-    skill_match_percentage = (len(exact) / max(1, len(exact) + len(missing))) * 100
-    impact_res = impact_score(resume_text)
-    prob_data = calculate_placement_probability(
-        score, skill_match_percentage, impact_res
-    )
-
-    p_val = prob_data["probability"]
-
-    c1, c2, c3 = st.columns([1, 1.2, 1.2])
-    with c1:
-        st.metric(
-            "Shortlist Probability",
-            f"{p_val}%",
-            delta=f"{p_val - 45.0:.1f}% vs Average",
-        )
-    with c2:
-        st.metric("Applicant Tier", prob_data["tier"])
-    with c3:
-        st.info(f"💡 {prob_data['insight']}")
-
-    st.write("### Market Benchmark Comparison")
-    st.progress(int(p_val))
-    st.caption(
-        f"**Your Score:** {p_val}% | **Average Applicant:** ~45% | **Top 10% Cutoff:** ~85%"
-    )
+    pro_wall("Placement Probability Predictor", [
+        "Predicts your % chance of getting shortlisted",
+        "Recruiter-grade benchmark modeling (vs 1000s of applicants)",
+        "Applicant Tier rating (Top 10%, Average, Below Average)",
+        "Market Benchmark progress bar with insight",
+    ])
 
     st.divider()
 
-    # -------- SMART SUGGESTIONS (Resume Worded AI) --------
-    st.subheader("💡 Suggestions (Resume Worded AI)")
-    st.write(
-        "Get actionable, line-specific feedback to improve your bullet points and impact."
-    )
-
-    with st.spinner("Analyzing resume for targeted improvements..."):
-        from utils.smart_suggestions import get_line_level_suggestions
-        suggestions_list = get_line_level_suggestions(resume_text)
-
-    if suggestions_list:
-        if "error" in suggestions_list[0]:
-            st.error(f"❌ Smart Suggestions Error: {suggestions_list[0]['error']}")
-            st.info("💡 Make sure your OpenAI API key is valid and has sufficient quota. You can update it in `utils/bullet_extractor.py`.")
-        else:
-            for idx, sug in enumerate(suggestions_list):
-                with st.expander(f"⚠️ Issue: {sug.get('issue', 'Needs Improvement')} (Confidence: {sug.get('confidence_score', 0)})"):
-                    st.write("**Original Line:**")
-                    st.error(sug.get('original_line'))
-                    st.write("**Suggested Improvement:**")
-                    st.success(sug.get('improved_suggestion'))
-    else:
-        st.info("No major line-level issues found! Your resume bullets look strong.")
+    # -------- SMART SUGGESTIONS — 🔒 PRO --------
+    st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
+    st.subheader("💡 Smart Suggestions (Resume Worded AI)")
+    pro_wall("AI-Powered Resume Suggestions", [
+        "Line-by-line feedback on every bullet point",
+        "Confidence-scored issue detection",
+        "Side-by-side original vs improved suggestions",
+        "Personalized to your target role",
+    ])
 
     st.divider()
 
-    # -------- AI RESUME REWRITER --------
+    # -------- AI RESUME REWRITER — 🔒 PRO --------
+    st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
     st.subheader("✨ AI Resume Rewriter")
-    st.write(
-        "Use our LLM to instantly transform weak bullet points into impactful, ATS-optimized achievements."
-    )
-
-    with st.spinner("Intelligently scanning resume for lines to improve..."):
-        from utils.bullet_extractor import extract_bullets_from_resume
-        valid_bullets_raw = extract_bullets_from_resume(resume_text)
-        
-    valid_bullets = list(dict.fromkeys(valid_bullets_raw)) # Remove duplicates
-
-    options = ["📝 Type or paste a custom bullet point..."] + valid_bullets
-    selected_option = st.selectbox(
-        "Select a bullet from your resume to enhance:", options
-    )
-
-    if selected_option == "📝 Type or paste a custom bullet point...":
-        bullet_to_rewrite = st.text_area("Paste original bullet point:")
-    else:
-        bullet_to_rewrite = selected_option
-
-    if bullet_to_rewrite:
-        strength = st.radio(
-            "Rewrite Strength",
-            ["Basic Polish", "Aggressive Transformation"],
-            horizontal=True,
-        )
-
-        if st.button("Rewrite Bullet 🚀"):
-            with st.spinner("Analyzing and rewriting using OpenAI..."):
-                from utils.llm_rewriter import rewrite_bullet
-
-                result = rewrite_bullet(bullet_to_rewrite, selected_profile, strength)
-
-                if "error" in result:
-                    st.error(f"Failed to generate rewrite: {result['error']}")
-                else:
-                    st.success("Bullet Transformed Successfully!")
-
-                    colA, colB = st.columns(2)
-                    with colA:
-                        st.subheader("🔴 Before")
-                        st.error(bullet_to_rewrite)
-                    with colB:
-                        st.subheader("🟢 After (Optimized)")
-                        st.success(
-                            result.get(
-                                "rewritten_bullet", "Error: Missing response data"
-                            )
-                        )
-
-                    st.write("💡 **AI Feedback:**")
-                    st.info(
-                        result.get("feedback_reason", "No feedback provided by model.")
-                    )
+    pro_wall("AI Resume Rewriter", [
+        "Select any bullet from your resume to instantly upgrade",
+        "Basic Polish or Aggressive Transformation modes",
+        "Before vs After comparison with ATS-optimized output",
+        "AI feedback explaining every rewrite decision",
+    ])
 
     st.divider()
 
-    # -------- JOB MATCH --------
+    # -------- JOB MATCH — FREE --------
+    st.markdown('<span class="badge-free">Free</span>', unsafe_allow_html=True)
     st.subheader("📄 Job Match")
 
     jd = st.text_area("Paste Job Description")
@@ -919,3 +857,4 @@ if uploaded_file:
 
         st.write(f"🤖 Semantic Match: {semantic_score:.2f}%")
         st.write(f"🧠 Skill Match: {skill_score:.2f}%")
+
