@@ -1,18 +1,22 @@
 import json
-from openai import OpenAI
-import os
-
 from utils.bullet_extractor import _get_client
 
-def get_line_level_suggestions(resume_text):
-    prompt = """You are an expert ATS resume reviewer.
+# Primary model first; fallbacks tried in order on 429 / rate-limit errors
+_MODELS = [
+    "google/gemini-2.0-flash-001",
+    "google/gemini-flash-1.5",
+    "meta-llama/llama-3.1-8b-instruct:free",
+    "mistralai/mistral-7b-instruct:free",
+]
+
+_PROMPT = """You are an expert ATS resume reviewer.
 
 Your task is to analyze the given resume and generate a MAXIMUM of 5 precise, context-aware, and highly actionable suggestions.
 
 CRITICAL RULES:
 1. Provide a MAXIMUM of 5 suggestions total. Focus ONLY on the absolute weakest lines that need the most critical improvement.
 2. DO NOT REPEAT ADVICE. Every suggestion must highlight a DIFFERENT flaw (e.g. do not complain about missing action verbs more than once).
-3. Do not give generic advice. Only pinpoint explicit flaws like "missing metrics", "passive voice", "cliché phrases", etc.
+3. Do not give generic advice. Only pinpoint explicit flaws like "missing metrics", "passive voice", "cliche phrases", etc.
 4. Each suggestion MUST exactly quote a specific `original_line` from the resume text. Do not invent lines.
 5. Provide a realistic `improved_suggestion` that uses strong action verbs and incorporates plausible metrics/results.
 6. Include a numeric `confidence_score` between 0 and 100 (only include >= 80).
@@ -27,39 +31,59 @@ Output format must be a JSON array of objects exactly like this:
   }
 ]
 """
-    try:
-        response = _get_client().chat.completions.create(
-            model="google/gemini-2.0-flash-001",
-            messages=[
-                {"role": "system", "content": "You are a JSON-generating assistant. Only return the JSON array of objects as requested in the output format. No markdown formatting or extra text."},
-                {"role": "user", "content": prompt + "\n\nResume Text:\n" + resume_text}
-            ],
-            temperature=0.0
-        )
 
-        text = response.choices[0].message.content.strip()
-        
-        # Strip markdown json blocks if they exist
-        if text.startswith("```json"):
-            text = text.replace("```json", "", 1)
-        if text.startswith("```"):
-            text = text.replace("```", "", 1)
-        if text.endswith("```"):
-            text = text[:-3]
-            
-        text = text.strip()
-        
-        # Parse logic
-        start_idx = text.find('[')
-        end_idx = text.rfind(']')
-        if start_idx != -1 and end_idx != -1:
-            json_str = text[start_idx:end_idx+1]
-            extracted = json.loads(json_str)
-            if isinstance(extracted, list):
-                return extracted
-        return []
-        
-    except Exception as e:
-        safe_msg = str(e).encode("ascii", errors="replace").decode("ascii")
-        print(f"Error generating smart suggestions: {safe_msg}")
-        return [{"error": str(e)}]
+
+def _parse_json(text: str):
+    """Strip markdown fences and extract JSON array from model output."""
+    for fence in ("```json", "```"):
+        if text.startswith(fence):
+            text = text[len(fence):]
+    if text.endswith("```"):
+        text = text[:-3]
+    text = text.strip()
+    start = text.find('[')
+    end   = text.rfind(']')
+    if start != -1 and end != -1:
+        parsed = json.loads(text[start:end + 1])
+        if isinstance(parsed, list):
+            return parsed
+    return []
+
+
+def get_line_level_suggestions(resume_text: str):
+    """Call LLM with automatic model fallback on rate-limit (429) errors."""
+    messages = [
+        {"role": "system", "content": "You are a JSON-generating assistant. "
+                                      "Only return the JSON array of objects as requested. "
+                                      "No markdown formatting or extra text."},
+        {"role": "user",   "content": _PROMPT + "\n\nResume Text:\n" + resume_text},
+    ]
+
+    last_error = None
+    for model in _MODELS:
+        try:
+            response = _get_client().chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=0.0,
+            )
+            text = response.choices[0].message.content.strip()
+            result = _parse_json(text)
+            return result  # success — return immediately
+
+        except Exception as e:
+            err_str = str(e)
+            safe   = err_str.encode("ascii", errors="replace").decode("ascii")
+            # Only fall through to next model on rate-limit / quota errors
+            if "429" in err_str or "rate" in err_str.lower() or "quota" in err_str.lower():
+                print(f"[smart_suggestions] Model {model} rate-limited, trying next... ({safe})")
+                last_error = e
+                continue
+            # Any other error — return immediately with error payload
+            print(f"[smart_suggestions] Error with {model}: {safe}")
+            return [{"error": err_str}]
+
+    # All models exhausted
+    safe_last = str(last_error).encode("ascii", errors="replace").decode("ascii")
+    print(f"[smart_suggestions] All models rate-limited: {safe_last}")
+    return [{"error": str(last_error)}]

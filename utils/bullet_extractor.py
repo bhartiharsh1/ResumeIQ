@@ -43,39 +43,57 @@ Return a clean list of exact lines:
 If no such lines exist, return:
 []"""
 
-    try:
-        response = _get_client().chat.completions.create(
-            model="google/gemini-2.0-flash-001",
-            messages=[
-                {"role": "system", "content": "You are a JSON-generating assistant. Only return the JSON array of strings as requested in the output format. No markdown formatting or extra text."},
-                {"role": "user", "content": prompt + "\n\nResume Text:\n" + resume_text}
-            ],
-            temperature=0.0
-        )
+    # Fallback model list — tried in order on rate-limit (429) errors
+    _models = [
+        "google/gemini-2.0-flash-001",
+        "google/gemini-flash-1.5",
+        "meta-llama/llama-3.1-8b-instruct:free",
+        "mistralai/mistral-7b-instruct:free",
+    ]
+    messages = [
+        {"role": "system", "content": "You are a JSON-generating assistant. "
+                                      "Only return the JSON array of strings as requested. "
+                                      "No markdown formatting or extra text."},
+        {"role": "user", "content": prompt + "\n\nResume Text:\n" + resume_text},
+    ]
 
-        text = response.choices[0].message.content.strip()
+    last_error = None
+    for model in _models:
+        try:
+            response = _get_client().chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=0.0,
+            )
+            text = response.choices[0].message.content.strip()
 
-        # Strip markdown json blocks if they exist
-        if text.startswith("```json"):
-            text = text.replace("```json", "", 1)
-        if text.startswith("```"):
-            text = text.replace("```", "", 1)
-        if text.endswith("```"):
-            text = text[:-3]
+            # Strip markdown fences
+            for fence in ("```json", "```"):
+                if text.startswith(fence):
+                    text = text[len(fence):]
+            if text.endswith("```"):
+                text = text[:-3]
+            text = text.strip()
 
-        text = text.strip()
+            # Parse JSON array
+            start_idx = text.find('[')
+            end_idx   = text.rfind(']')
+            if start_idx != -1 and end_idx != -1:
+                extracted = json.loads(text[start_idx:end_idx + 1])
+                if isinstance(extracted, list):
+                    return extracted
+            return []
 
-        # Parse logic
-        start_idx = text.find('[')
-        end_idx = text.rfind(']')
-        if start_idx != -1 and end_idx != -1:
-            json_str = text[start_idx:end_idx+1]
-            extracted = json.loads(json_str)
-            if isinstance(extracted, list):
-                return extracted
-        return []
+        except Exception as e:
+            err_str = str(e)
+            safe    = err_str.encode("ascii", errors="replace").decode("ascii")
+            if "429" in err_str or "rate" in err_str.lower() or "quota" in err_str.lower():
+                print(f"[bullet_extractor] Model {model} rate-limited, trying next... ({safe})")
+                last_error = e
+                continue
+            print(f"[bullet_extractor] Error with {model}: {safe}")
+            return []
 
-    except Exception as e:
-        safe_msg = str(e).encode("ascii", errors="replace").decode("ascii")
-        print(f"Error extracting bullets: {safe_msg}")
-        return []
+    safe_last = str(last_error).encode("ascii", errors="replace").decode("ascii")
+    print(f"[bullet_extractor] All models rate-limited: {safe_last}")
+    return []
