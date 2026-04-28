@@ -42,8 +42,8 @@ def get_openrouter_key() -> str:
 
     raise RuntimeError(
         "OPENROUTER_API_KEY is not set.\n"
-        "  • Local dev: add it to your .env file\n"
-        "  • Streamlit Cloud: add it to App Settings → Secrets"
+        "  * Local dev: add it to your .env file\n"
+        "  * Streamlit Cloud: add it to App Settings -> Secrets"
     )
 
 

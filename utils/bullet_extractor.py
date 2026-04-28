@@ -76,5 +76,6 @@ If no such lines exist, return:
         return []
 
     except Exception as e:
-        print(f"Error extracting bullets: {e}")
+        safe_msg = str(e).encode("ascii", errors="replace").decode("ascii")
+        print(f"Error extracting bullets: {safe_msg}")
         return []

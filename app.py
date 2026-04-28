@@ -317,25 +317,24 @@ def _validate_pro_code(code: str) -> bool:
             pass
     return False
 
-# ── SIDEBAR PRO UNLOCK WIDGET ──────────────────────────────────────────────────
+# ── SIDEBAR PRO STATUS ─────────────────────────────────────────────────────────
 st.sidebar.divider()
 if not st.session_state.is_pro:
-    st.sidebar.markdown("#### 🔐 Pro Access")
     st.sidebar.markdown(
-        '<small style="color:#9ca3af;">Paid? Enter the code from your email to unlock all Pro features.</small>',
-        unsafe_allow_html=True
-    )
-    _code_input = st.sidebar.text_input(
-        "Access Code", type="password", key="_pro_code", placeholder="RIQ-XXXX-XXXX-XXXX"
-    )
-    if st.sidebar.button("🔓 Unlock Pro", key="_unlock_btn", use_container_width=True):
-        if _validate_pro_code(_code_input):
-            st.session_state.is_pro = True
-            st.rerun()
-        else:
-            st.sidebar.error("❌ Invalid code. Try again.")
-    st.sidebar.markdown(
-        '<a href="https://rzp.io/rzp/OP1Bn0k" target="_blank" style="color:#f59e0b;font-size:0.8rem;">💳 Buy Pro (₹79) →</a>',
+        """
+        <div style='background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);
+                    border-radius:10px;padding:12px 14px;text-align:center;'>
+            <div style='font-size:1rem;font-weight:800;color:#f59e0b;margin-bottom:4px;'>⚡ Upgrade to Pro</div>
+            <div style='font-size:0.73rem;color:#9ca3af;margin-bottom:10px;'>Unlock all AI features — ₹79 one-time</div>
+            <a href='https://rzp.io/rzp/OP1Bn0k' target='_blank'
+               style='display:inline-block;background:linear-gradient(135deg,#f59e0b,#d97706);
+                      color:#000;font-weight:800;font-size:0.82rem;padding:8px 20px;
+                      border-radius:20px;text-decoration:none;'>Pay ₹79 →</a>
+            <div style='font-size:0.7rem;color:#6b7280;margin-top:8px;'>
+                ✅ After paying, enter your code<br>directly on the feature page
+            </div>
+        </div>
+        """,
         unsafe_allow_html=True
     )
 else:
@@ -377,6 +376,16 @@ st.markdown("""
     box-shadow: 0 6px 28px rgba(245,158,11,0.45); letter-spacing: 0.3px;
 }
 .paywall-note { margin-top: 14px; color: #6b7280; font-size: 0.78rem; }
+/* ── Inline unlock strip ── */
+.unlock-strip {
+    margin-top: 28px;
+    padding-top: 22px;
+    border-top: 1px solid rgba(245,158,11,0.18);
+}
+.unlock-strip-label {
+    font-size: 0.82rem; font-weight: 700; letter-spacing: 0.8px;
+    color: #a78bfa; text-transform: uppercase; margin-bottom: 10px;
+}
 .badge-free {
     display: inline-block; background: rgba(16,185,129,0.15);
     border: 1px solid rgba(16,185,129,0.4); color: #10b981;
@@ -393,19 +402,51 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def pro_wall(feature_name, bullets):
-    """Render a locked paywall card for a Pro feature."""
+    """Render a locked paywall card for a Pro feature, with inline code-unlock."""
     bullets_html = "".join(f"<li>{b}</li>" for b in bullets)
+    # Sanitise feature name for use as a unique widget key
+    _key = re.sub(r"[^a-z0-9]", "_", feature_name.lower())
+
     st.markdown(f"""
     <div class="paywall-card">
         <div class="paywall-lock">🔒</div>
         <div class="paywall-title">{feature_name} — Pro Feature</div>
         <ul class="paywall-bullets">{bullets_html}</ul>
         <a class="paywall-btn" href="https://rzp.io/rzp/OP1Bn0k" target="_blank">
-            ⚡ Upgrade to Pro — Unlock Full Access
+            ⚡ Upgrade to Pro — ₹79 One-time
         </a>
-        <div class="paywall-note">One-time payment · Instant access · No subscription needed</div>
+        <div class="paywall-note">One-time payment · No subscription · Instant unlock</div>
+        <div class="unlock-strip">
+            <div class="unlock-strip-label">✅ Already paid? Enter your access code below to unlock instantly</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # Inline unlock form rendered as native Streamlit widgets (fully interactive)
+    _col_l, _col_mid, _col_r = st.columns([1, 3, 1])
+    with _col_mid:
+        _code = st.text_input(
+            "🔑 Enter Access Code",
+            type="password",
+            placeholder="e.g. RESUMEIQ-PRO",
+            key=f"_wall_code_{_key}",
+            help="You'll receive this code via WhatsApp / email after payment."
+        )
+        _btn_col, _info_col = st.columns([1, 2])
+        with _btn_col:
+            if st.button("🔓 Unlock Pro", key=f"_wall_btn_{_key}", use_container_width=True):
+                if _validate_pro_code(_code):
+                    st.session_state.is_pro = True
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid code. Check and try again, or contact support on WhatsApp.")
+        with _info_col:
+            st.markdown(
+                '<small style="color:#6b7280;font-size:0.78rem;">'
+                'No code? After paying, WhatsApp <b style="color:#a78bfa">+91 your-number</b> '
+                'with your payment screenshot to get your code instantly.</small>',
+                unsafe_allow_html=True
+            )
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 🙋  RESUME HELP REQUEST PAGE

@@ -60,5 +60,6 @@ Output format must be a JSON array of objects exactly like this:
         return []
         
     except Exception as e:
-        print(f"Error generating smart suggestions: {e}")
+        safe_msg = str(e).encode("ascii", errors="replace").decode("ascii")
+        print(f"Error generating smart suggestions: {safe_msg}")
         return [{"error": str(e)}]
