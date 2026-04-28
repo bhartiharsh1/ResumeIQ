@@ -79,9 +79,9 @@ def send_email(to_email: str, code: str, customer_name: str) -> None:
           </p>
           <ol style="color:#9ca3af;font-size:0.88rem;line-height:2.2;padding-left:20px;">
             <li>Open <a href="{APP_URL}" style="color:#a78bfa;text-decoration:none;">{APP_URL}</a></li>
-            <li>Look for <strong style="color:#e2eaf8;">🔐 Pro Access</strong> in the left sidebar</li>
-            <li>Paste your code and click <strong style="color:#e2eaf8;">🔓 Unlock Pro</strong></li>
-            <li>Every Pro feature unlocks across the entire app ✅</li>
+            <li>Go to any Pro feature (e.g. <strong style="color:#e2eaf8;">Interview Predictor</strong> or <strong style="color:#e2eaf8;">A/B Testing</strong>)</li>
+            <li>You'll see a <strong style="color:#f59e0b;">"Already paid? Enter your access code"</strong> field</li>
+            <li>Paste your code and click <strong style="color:#e2eaf8;">🔓 Unlock Pro</strong> — done! ✅</li>
           </ol>
 
           <div style="background:rgba(245,158,11,0.08);border-left:4px solid #f59e0b;
