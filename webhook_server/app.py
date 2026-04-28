@@ -22,7 +22,16 @@ SUPABASE_URL            = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY            = os.getenv("SUPABASE_KEY", "")
 APP_URL                 = os.getenv("APP_URL", "https://resumeiq.streamlit.app")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# ── Lazy Supabase client (initialized on first use, not at import time) ────────
+_supabase_client = None
+
+def get_supabase():
+    global _supabase_client
+    if _supabase_client is None:
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            raise RuntimeError("SUPABASE_URL or SUPABASE_KEY not configured")
+        _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    return _supabase_client
 
 # ── HELPERS ───────────────────────────────────────────────────────────────────
 def generate_code() -> str:
@@ -158,7 +167,7 @@ def razorpay_webhook():
         code = generate_code()
 
         # 4. Store in Supabase
-        supabase.table('pro_codes').insert({
+        get_supabase().table('pro_codes').insert({
             'code':          code,
             'email':         customer_email,
             'payment_id':    payment_id,
@@ -183,7 +192,7 @@ def validate_code():
     if not code:
         return jsonify({"valid": False}), 200
 
-    result = supabase.table('pro_codes') \
+    result = get_supabase().table('pro_codes') \
         .select('code') \
         .eq('code', code) \
         .execute()
