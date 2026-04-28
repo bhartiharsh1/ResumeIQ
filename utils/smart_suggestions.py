@@ -75,7 +75,9 @@ def get_line_level_suggestions(resume_text: str):
             err_str = str(e)
             safe   = err_str.encode("ascii", errors="replace").decode("ascii")
             # Only fall through to next model on rate-limit / quota errors
-            if any(x in err_str for x in ("429", "404")) or "rate" in err_str.lower() or "quota" in err_str.lower():
+            if any(x in err_str for x in ("429", "404", "504", "502", "503")) or \
+               "rate" in err_str.lower() or "quota" in err_str.lower() or \
+               "aborted" in err_str.lower() or "timeout" in err_str.lower():
                 print(f"[smart_suggestions] Model {model} unavailable ({safe}), trying next...")
                 last_error = e
                 continue

@@ -87,7 +87,9 @@ If no such lines exist, return:
         except Exception as e:
             err_str = str(e)
             safe    = err_str.encode("ascii", errors="replace").decode("ascii")
-            if any(x in err_str for x in ("429", "404")) or "rate" in err_str.lower() or "quota" in err_str.lower():
+            if any(x in err_str for x in ("429", "404", "504", "502", "503")) or \
+               "rate" in err_str.lower() or "quota" in err_str.lower() or \
+               "aborted" in err_str.lower() or "timeout" in err_str.lower():
                 print(f"[bullet_extractor] Model {model} unavailable ({safe}), trying next...")
                 last_error = e
                 continue

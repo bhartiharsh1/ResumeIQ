@@ -1,13 +1,29 @@
 import json
-from openai import OpenAI
+from utils.bullet_extractor import _get_client
 
-from utils.bullet_extractor import API_KEY, client
+# Fallback model chain — tried in order on 429 / 404 / 504 errors
+_MODELS = [
+    "google/gemini-2.0-flash-001",
+    "google/gemini-1.5-flash",
+    "meta-llama/llama-3.1-8b-instruct:free",
+    "mistralai/mistral-7b-instruct:free",
+]
+
+_RETRYABLE = ("429", "404", "504", "502", "503")
+
 
 def rewrite_bullet(bullet_text, role, strength="Basic Polish"):
     if strength == "Aggressive Transformation":
-        guidance = "Dramatically rewrite the bullet to maximize impact. Inject strong professional industry jargon, structurally optimize the wording, and vividly highlight outcomes."
+        guidance = (
+            "Dramatically rewrite the bullet to maximize impact. "
+            "Inject strong professional industry jargon, structurally optimize "
+            "the wording, and vividly highlight outcomes."
+        )
     else:
-        guidance = "Polish the bullet. Fix grammar, ensure it starts with a strong action verb, and make it concise and ATS-friendly."
+        guidance = (
+            "Polish the bullet. Fix grammar, ensure it starts with a strong "
+            "action verb, and make it concise and ATS-friendly."
+        )
 
     prompt = f"""You are an expert Executive Resume Writer and ATS Optimizer.
 Your task is to intelligently rewrite the provided resume bullet point to make it exceptionally strong for a {role} position.
@@ -24,25 +40,36 @@ Provide the response STRICTLY as a JSON object with two keys mapping to strings:
 Original Bullet: "{bullet_text}"
 """
 
-    try:
-        response = client.chat.completions.create(
-            model="google/gemini-2.0-flash-001",
-            messages=[
-                {"role": "system", "content": "You are a specialized JSON-generating ATS resume optimization assistant. Always return pure JSON."},
-                {"role": "user", "content": prompt}
-            ]
-        )
+    messages = [
+        {"role": "system", "content": "You are a specialized JSON-generating ATS resume optimization assistant. Always return pure JSON."},
+        {"role": "user",   "content": prompt},
+    ]
 
-        text = response.choices[0].message.content.strip()
-        if text.startswith("```json"):
-            text = text.replace("```json", "", 1)
-        if text.startswith("```"):
-            text = text.replace("```", "", 1)
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-        data = json.loads(text)
-        return data
+    last_error = None
+    for model in _MODELS:
+        try:
+            response = _get_client().chat.completions.create(
+                model=model,
+                messages=messages,
+            )
+            text = response.choices[0].message.content.strip()
+            for fence in ("```json", "```"):
+                if text.startswith(fence):
+                    text = text[len(fence):]
+            if text.endswith("```"):
+                text = text[:-3]
+            text = text.strip()
+            return json.loads(text)
 
-    except Exception as e:
-        return {"error": str(e)}
+        except Exception as e:
+            err_str = str(e)
+            safe = err_str.encode("ascii", errors="replace").decode("ascii")
+            if any(code in err_str for code in _RETRYABLE) or \
+               "rate" in err_str.lower() or "quota" in err_str.lower() or \
+               "aborted" in err_str.lower() or "timeout" in err_str.lower():
+                print(f"[llm_rewriter] Model {model} unavailable ({safe}), trying next...")
+                last_error = e
+                continue
+            return {"error": err_str}
+
+    return {"error": str(last_error)}
