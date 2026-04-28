@@ -43,10 +43,10 @@ Return a clean list of exact lines:
 If no such lines exist, return:
 []"""
 
-    # Fallback model list — tried in order on rate-limit (429) errors
+    # Fallback model list — tried in order on rate-limit (429) or missing model (404) errors
     _models = [
         "google/gemini-2.0-flash-001",
-        "google/gemini-flash-1.5",
+        "google/gemini-1.5-flash",
         "meta-llama/llama-3.1-8b-instruct:free",
         "mistralai/mistral-7b-instruct:free",
     ]
@@ -87,8 +87,8 @@ If no such lines exist, return:
         except Exception as e:
             err_str = str(e)
             safe    = err_str.encode("ascii", errors="replace").decode("ascii")
-            if "429" in err_str or "rate" in err_str.lower() or "quota" in err_str.lower():
-                print(f"[bullet_extractor] Model {model} rate-limited, trying next... ({safe})")
+            if any(x in err_str for x in ("429", "404")) or "rate" in err_str.lower() or "quota" in err_str.lower():
+                print(f"[bullet_extractor] Model {model} unavailable ({safe}), trying next...")
                 last_error = e
                 continue
             print(f"[bullet_extractor] Error with {model}: {safe}")

@@ -1,10 +1,10 @@
 import json
 from utils.bullet_extractor import _get_client
 
-# Primary model first; fallbacks tried in order on 429 / rate-limit errors
+# Primary model first; fallbacks tried in order on 429 / 404 errors
 _MODELS = [
     "google/gemini-2.0-flash-001",
-    "google/gemini-flash-1.5",
+    "google/gemini-1.5-flash",
     "meta-llama/llama-3.1-8b-instruct:free",
     "mistralai/mistral-7b-instruct:free",
 ]
@@ -75,8 +75,8 @@ def get_line_level_suggestions(resume_text: str):
             err_str = str(e)
             safe   = err_str.encode("ascii", errors="replace").decode("ascii")
             # Only fall through to next model on rate-limit / quota errors
-            if "429" in err_str or "rate" in err_str.lower() or "quota" in err_str.lower():
-                print(f"[smart_suggestions] Model {model} rate-limited, trying next... ({safe})")
+            if any(x in err_str for x in ("429", "404")) or "rate" in err_str.lower() or "quota" in err_str.lower():
+                print(f"[smart_suggestions] Model {model} unavailable ({safe}), trying next...")
                 last_error = e
                 continue
             # Any other error — return immediately with error payload
