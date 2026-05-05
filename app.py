@@ -326,12 +326,8 @@ if not st.session_state.is_pro:
                     border-radius:10px;padding:12px 14px;text-align:center;'>
             <div style='font-size:1rem;font-weight:800;color:#f59e0b;margin-bottom:4px;'>⚡ Upgrade to Pro</div>
             <div style='font-size:0.73rem;color:#9ca3af;margin-bottom:10px;'>Unlock all AI features — ₹79 one-time</div>
-            <a href='https://rzp.io/rzp/OP1Bn0k' target='_blank'
-               style='display:inline-block;background:linear-gradient(135deg,#f59e0b,#d97706);
-                      color:#000;font-weight:800;font-size:0.82rem;padding:8px 20px;
-                      border-radius:20px;text-decoration:none;'>Pay ₹79 →</a>
-            <div style='font-size:0.7rem;color:#6b7280;margin-top:8px;'>
-                ✅ After paying, enter your code<br>directly on the feature page
+            <div style='font-size:0.75rem;color:#9ca3af;margin-top:4px;'>
+                Enter your email on the feature page to get a personalized payment link →
             </div>
         </div>
         """,
@@ -406,47 +402,105 @@ def pro_wall(feature_name, bullets):
     bullets_html = "".join(f"<li>{b}</li>" for b in bullets)
     # Sanitise feature name for use as a unique widget key
     _key = re.sub(r"[^a-z0-9]", "_", feature_name.lower())
+    _link_key  = f"_wall_link_{_key}"
+    _email_key = f"_wall_email_{_key}"
 
     st.markdown(f"""
     <div class="paywall-card">
         <div class="paywall-lock">🔒</div>
         <div class="paywall-title">{feature_name} — Pro Feature</div>
         <ul class="paywall-bullets">{bullets_html}</ul>
-        <a class="paywall-btn" href="https://rzp.io/rzp/OP1Bn0k" target="_blank">
-            ⚡ Upgrade to Pro — ₹79 One-time
-        </a>
-        <div class="paywall-note">One-time payment · No subscription · Instant unlock</div>
+        <div class="paywall-note">⚡ One-time payment · ₹79 · No subscription · Instant email delivery</div>
         <div class="unlock-strip">
-            <div class="unlock-strip-label">✅ Already paid? Enter your access code below to unlock instantly</div>
+            <div class="unlock-strip-label">Step 1 · Enter your email to get a unique payment link →</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Inline unlock form rendered as native Streamlit widgets (fully interactive)
     _col_l, _col_mid, _col_r = st.columns([1, 3, 1])
     with _col_mid:
-        _code = st.text_input(
-            "🔑 Enter Access Code",
-            type="password",
-            placeholder="e.g. RESUMEIQ-PRO",
-            key=f"_wall_code_{_key}",
-            help="You'll receive this code via WhatsApp / email after payment."
-        )
-        _btn_col, _info_col = st.columns([1, 2])
-        with _btn_col:
-            if st.button("🔓 Unlock Pro", key=f"_wall_btn_{_key}", use_container_width=True):
-                if _validate_pro_code(_code):
-                    st.session_state.is_pro = True
-                    st.rerun()
+
+        # ── STEP 1: Generate a unique payment link ──────────────────────────
+        if _link_key not in st.session_state:
+            _em_col, _nm_col = st.columns(2)
+            with _em_col:
+                _email = st.text_input(
+                    "📧 Your Email",
+                    placeholder="you@gmail.com",
+                    key=f"_wall_email_{_key}",
+                    help="Your access code is emailed to you after payment."
+                )
+            with _nm_col:
+                _name = st.text_input(
+                    "👤 Your Name (optional)",
+                    placeholder="Rahul Sharma",
+                    key=f"_wall_name_{_key}",
+                )
+
+            if st.button("⚡ Get My Payment Link →", key=f"_wall_gen_{_key}", use_container_width=True):
+                _email_val = _email.strip() if _email else ""
+                _name_val  = _name.strip()  if _name  else ""
+                if not _email_val:
+                    st.error("Please enter your email address to continue.")
+                elif WEBHOOK_SERVER_URL:
+                    try:
+                        import requests as _req
+                        _resp = _req.post(
+                            f"{WEBHOOK_SERVER_URL}/create-payment-link",
+                            json={"email": _email_val, "name": _name_val},
+                            timeout=10,
+                        )
+                        if _resp.status_code == 200:
+                            st.session_state[_link_key]  = _resp.json().get("url", "")
+                            st.session_state[_email_key] = _email_val
+                            st.rerun()
+                        else:
+                            st.error(f"❌ Server error ({_resp.status_code}). Please try again.")
+                    except Exception:
+                        st.error("❌ Could not reach payment server. Please try again in a moment.")
                 else:
-                    st.error("❌ Invalid code. Check and try again, or contact support on WhatsApp.")
-        with _info_col:
+                    # No webhook server configured — fallback to static link
+                    st.session_state[_link_key] = "https://rzp.io/rzp/OP1Bn0k"
+                    st.rerun()
+
+        # ── STEP 2: Show unique payment link ────────────────────────────────
+        else:
+            _pay_url   = st.session_state[_link_key]
+            _saved_email = st.session_state.get(_email_key, "your email")
+            st.success(f"✅ Your personal payment link is ready!")
             st.markdown(
-                '<small style="color:#6b7280;font-size:0.78rem;">'
-                'No code? After paying, WhatsApp <b style="color:#a78bfa">+91 your-number</b> '
-                'with your payment screenshot to get your code instantly.</small>',
-                unsafe_allow_html=True
+                f'<a href="{_pay_url}" target="_blank" '
+                f'style="display:block;text-align:center;background:linear-gradient(135deg,#f59e0b,#d97706);'
+                f'color:#000;font-weight:800;font-size:1rem;padding:14px 24px;border-radius:30px;'
+                f'text-decoration:none;box-shadow:0 6px 24px rgba(245,158,11,0.45);margin:12px 0;">'
+                f'💳 Pay ₹79 — Open My Payment Page →</a>',
+                unsafe_allow_html=True,
             )
+            st.caption(
+                f"After paying, check **{_saved_email}** for your access code — arrives within 60 seconds. "
+                f"Then enter it below."
+            )
+            if st.button("🔄 Use a different email", key=f"_wall_regen_{_key}"):
+                del st.session_state[_link_key]
+                st.rerun()
+
+        # ── STEP 3: Enter access code (always visible) ──────────────────────
+        st.divider()
+        st.markdown('<div class="unlock-strip-label">Step 2 (after paying) · Enter your access code</div>',
+                    unsafe_allow_html=True)
+        _code = st.text_input(
+            "🔑 Access Code",
+            type="password",
+            placeholder="e.g. RIQ-A1B2-C3D4-E5F6",
+            key=f"_wall_code_{_key}",
+            help="Check your email inbox after payment — your unique code is there."
+        )
+        if st.button("🔓 Unlock Pro", key=f"_wall_btn_{_key}", use_container_width=True):
+            if _validate_pro_code(_code):
+                st.session_state.is_pro = True
+                st.rerun()
+            else:
+                st.error("❌ Invalid code. Double-check your email or contact support.")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 🙋  RESUME HELP REQUEST PAGE
