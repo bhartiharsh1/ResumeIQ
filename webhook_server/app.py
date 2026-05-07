@@ -306,5 +306,27 @@ def validate_code():
     return jsonify({"valid": bool(result.data)}), 200
 
 
+@app.route('/get-code', methods=['GET'])
+def get_code():
+    """
+    Streamlit polls this after the user pays.
+    Returns the access code for the given email if payment is confirmed.
+    """
+    email = request.args.get('email', '').strip().lower()
+    if not email:
+        return jsonify({"found": False}), 200
+
+    result = get_supabase().table('pro_codes') \
+        .select('code, created_at') \
+        .eq('email', email) \
+        .order('created_at', desc=True) \
+        .limit(1) \
+        .execute()
+
+    if result.data:
+        return jsonify({"found": True, "code": result.data[0]['code']}), 200
+    return jsonify({"found": False}), 200
+
+
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5000)

@@ -473,42 +473,126 @@ def pro_wall(feature_name, bullets):
 
         # ── STEP 2: Show unique payment link ────────────────────────────────
         else:
-            _pay_url   = st.session_state[_link_key]
+            _pay_url     = st.session_state[_link_key]
             _saved_email = st.session_state.get(_email_key, "your email")
-            st.success(f"✅ Your personal payment link is ready!")
-            st.markdown(
-                f'<a href="{_pay_url}" target="_blank" '
-                f'style="display:block;text-align:center;background:linear-gradient(135deg,#f59e0b,#d97706);'
-                f'color:#000;font-weight:800;font-size:1rem;padding:14px 24px;border-radius:30px;'
-                f'text-decoration:none;box-shadow:0 6px 24px rgba(245,158,11,0.45);margin:12px 0;">'
-                f'💳 Pay ₹79 — Open My Payment Page →</a>',
-                unsafe_allow_html=True,
-            )
-            st.caption(
-                f"After paying, check **{_saved_email}** for your access code — arrives within 60 seconds. "
-                f"Then enter it below."
-            )
-            if st.button("🔄 Use a different email", key=f"_wall_regen_{_key}"):
-                del st.session_state[_link_key]
-                st.rerun()
+            _code_key    = f"_found_code_{_key}"
+
+            # ── If code already found — show corner popup + inline ───────
+            if st.session_state.get(_code_key):
+                _found_code = st.session_state[_code_key]
+                st.success("🎉 Payment confirmed! Your access code is ready.")
+                st.markdown(f"""
+<style>
+@keyframes slideInRight {{
+    from {{ transform: translateX(120%); opacity: 0; }}
+    to   {{ transform: translateX(0);   opacity: 1; }}
+}}
+#rzq-popup {{
+    position: fixed; top: 24px; right: 24px; z-index: 999999;
+    background: linear-gradient(135deg, #0d1117 0%, #1a0a00 100%);
+    border: 2px solid #f59e0b; border-radius: 18px; padding: 24px 28px;
+    max-width: 320px; min-width: 280px;
+    box-shadow: 0 8px 48px rgba(245,158,11,0.5), 0 2px 16px rgba(0,0,0,0.8);
+    animation: slideInRight 0.5s cubic-bezier(.22,1,.36,1);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}}
+#rzq-code {{
+    font-size:1.35rem; font-weight:900; color:#fff;
+    background:#0a0a0a; border:2px solid #f59e0b; border-radius:10px;
+    padding:12px 16px; letter-spacing:3px; font-family:'Courier New',monospace;
+    text-align:center; margin-bottom:12px; cursor:pointer;
+}}
+#rzq-copy {{
+    width:100%; padding:10px; background:linear-gradient(135deg,#f59e0b,#d97706);
+    color:#000; font-weight:800; font-size:0.9rem; border:none; border-radius:10px;
+    cursor:pointer; margin-bottom:10px;
+}}
+</style>
+<div id="rzq-popup">
+    <div style="color:#f59e0b;font-size:1.1rem;font-weight:800;margin-bottom:6px;">🎉 Payment Confirmed!</div>
+    <div style="color:#9ca3af;font-size:0.75rem;margin-bottom:14px;">Your Pro Access Code:</div>
+    <div id="rzq-code">{_found_code}</div>
+    <button id="rzq-copy" onclick="navigator.clipboard.writeText('{_found_code}');this.textContent='✅ Copied!'">📋 Copy Code</button>
+    <div style="color:#6b7280;font-size:0.72rem;text-align:center;">Closes in <span id="rzq-secs">30</span>s · code also shown below</div>
+</div>
+<script>
+(function(){{
+    let s=30;
+    const el=document.getElementById('rzq-secs');
+    const p=document.getElementById('rzq-popup');
+    const iv=setInterval(function(){{s--;if(el)el.textContent=s;if(s<=0){{clearInterval(iv);if(p)p.style.display='none';}}}},1000);
+}})();
+</script>
+<div style="background:linear-gradient(135deg,#1a0a00,#0d0d0d);border:2px solid #f59e0b;
+border-radius:14px;padding:20px 24px;text-align:center;margin:16px 0;">
+    <div style="color:#9ca3af;font-size:0.8rem;margin-bottom:8px;">YOUR PRO ACCESS CODE</div>
+    <div style="font-size:1.8rem;font-weight:900;color:#f59e0b;letter-spacing:4px;
+    font-family:'Courier New',monospace;">{_found_code}</div>
+    <div style="color:#6b7280;font-size:0.75rem;margin-top:8px;">Paste this in the field below to unlock Pro ↓</div>
+</div>""", unsafe_allow_html=True)
+
+            else:
+                # ── Show payment link ────────────────────────────────────
+                st.success("✅ Your personal payment link is ready!")
+                st.markdown(
+                    f'<a href="{_pay_url}" target="_blank" '
+                    f'style="display:block;text-align:center;background:linear-gradient(135deg,#f59e0b,#d97706);'
+                    f'color:#000;font-weight:800;font-size:1rem;padding:14px 24px;border-radius:30px;'
+                    f'text-decoration:none;box-shadow:0 6px 24px rgba(245,158,11,0.45);margin:12px 0;">'
+                    f'💳 Pay ₹79 — Open My Payment Page →</a>',
+                    unsafe_allow_html=True,
+                )
+                st.caption("After paying, click the button below — your code appears on screen instantly!")
+
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    if st.button("✅ I've Paid — Show My Code!", key=f"_wall_check_{_key}", use_container_width=True):
+                        with st.spinner("Checking payment status... (may take ~15s)"):
+                            try:
+                                import requests as _req, time as _time
+                                _attempts = 0
+                                _found = False
+                                while _attempts < 12:
+                                    _r = _req.get(
+                                        f"{WEBHOOK_SERVER_URL}/get-code",
+                                        params={"email": _saved_email},
+                                        timeout=10,
+                                    )
+                                    if _r.status_code == 200 and _r.json().get("found"):
+                                        st.session_state[_code_key] = _r.json()["code"]
+                                        _found = True
+                                        break
+                                    _time.sleep(5)
+                                    _attempts += 1
+                                if not _found:
+                                    st.warning("⏳ Payment not detected yet — wait a few seconds and try again.")
+                            except Exception as _ex:
+                                st.error(f"❌ Could not check status: {_ex}")
+                        st.rerun()
+                with col2:
+                    if st.button("🔄 Different email", key=f"_wall_regen_{_key}"):
+                        del st.session_state[_link_key]
+                        st.rerun()
 
         # ── STEP 3: Enter access code (always visible) ──────────────────────
         st.divider()
         st.markdown('<div class="unlock-strip-label">Step 2 (after paying) · Enter your access code</div>',
                     unsafe_allow_html=True)
+        _prefill = st.session_state.get(f"_found_code_{_key}", "")
         _code = st.text_input(
             "🔑 Access Code",
-            type="password",
+            value=_prefill,
             placeholder="e.g. RIQ-A1B2-C3D4-E5F6",
             key=f"_wall_code_{_key}",
-            help="Check your email inbox after payment — your unique code is there."
+            help="Code appears on screen after payment — or check your email."
         )
         if st.button("🔓 Unlock Pro", key=f"_wall_btn_{_key}", use_container_width=True):
             if _validate_pro_code(_code):
                 st.session_state.is_pro = True
                 st.rerun()
             else:
-                st.error("❌ Invalid code. Double-check your email or contact support.")
+                st.error("❌ Invalid code. Double-check or contact support.")
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 🙋  RESUME HELP REQUEST PAGE
