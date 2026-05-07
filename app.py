@@ -443,21 +443,28 @@ def pro_wall(feature_name, bullets):
                 if not _email_val:
                     st.error("Please enter your email address to continue.")
                 elif WEBHOOK_SERVER_URL:
-                    try:
-                        import requests as _req
-                        _resp = _req.post(
-                            f"{WEBHOOK_SERVER_URL}/create-payment-link",
-                            json={"email": _email_val, "name": _name_val},
-                            timeout=10,
-                        )
-                        if _resp.status_code == 200:
-                            st.session_state[_link_key]  = _resp.json().get("url", "")
-                            st.session_state[_email_key] = _email_val
-                            st.rerun()
-                        else:
-                            st.error(f"❌ Server error ({_resp.status_code}). Please try again.")
-                    except Exception:
-                        st.error("❌ Could not reach payment server. Please try again in a moment.")
+                    with st.spinner("⏳ Generating your payment link — server may take ~20s to wake up on first request..."):
+                        try:
+                            import requests as _req
+                            _resp = _req.post(
+                                f"{WEBHOOK_SERVER_URL}/create-payment-link",
+                                json={"email": _email_val, "name": _name_val},
+                                timeout=30,  # Railway free tier needs ~20s cold-start
+                            )
+                            if _resp.status_code == 200:
+                                st.session_state[_link_key]  = _resp.json().get("url", "")
+                                st.session_state[_email_key] = _email_val
+                                st.rerun()
+                            else:
+                                try:
+                                    _err_detail = _resp.json().get("error", _resp.text[:120])
+                                except Exception:
+                                    _err_detail = _resp.text[:120]
+                                st.error(f"❌ Server error ({_resp.status_code}): {_err_detail}. Please try again.")
+                        except _req.exceptions.Timeout:
+                            st.error("⏱️ Server is waking up — it took too long this time. Please click the button again in ~10 seconds.")
+                        except Exception as _ex:
+                            st.error(f"❌ Could not reach payment server ({type(_ex).__name__}). Please try again in a moment.")
                 else:
                     # No webhook server configured — fallback to static link
                     st.session_state[_link_key] = "https://rzp.io/rzp/OP1Bn0k"
