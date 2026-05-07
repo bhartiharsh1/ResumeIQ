@@ -539,7 +539,9 @@ border-radius:14px;padding:18px 22px;text-align:center;margin:14px 0 4px;">
                     f'💳 Pay ₹79 — Open Payment Page →</a>',
                     unsafe_allow_html=True,
                 )
-                st.caption("Complete payment, then click the button below — your code appears instantly!")
+                st.info(f"⚠️ **Important:** When Razorpay asks for your email, enter **{_saved_email}** (same as above) so we can match your payment and show your code.")
+                st.caption("After paying, click the button below — your unique code appears on screen instantly!")
+
                 col1, col2 = st.columns([3, 1])
                 with col1:
                     if st.button("✅ I've Paid — Show My Code!", key=f"_wall_paid_{_key}", use_container_width=True):
