@@ -402,8 +402,8 @@ def pro_wall(feature_name, bullets):
     bullets_html = "".join(f"<li>{b}</li>" for b in bullets)
     # Sanitise feature name for use as a unique widget key
     _key = re.sub(r"[^a-z0-9]", "_", feature_name.lower())
-    _link_key  = f"_wall_link_{_key}"
-    _email_key = f"_wall_email_{_key}"
+    _link_key        = f"_wall_link_{_key}"
+    _saved_email_key = f"_wall_saved_email_{_key}"  # separate from widget key
 
     st.markdown(f"""
     <div class="paywall-card">
@@ -458,14 +458,14 @@ def pro_wall(feature_name, bullets):
                                     _got_link = _resp.json().get("url", _static_link)
                             except Exception:
                                 pass  # silently use static link
-                    st.session_state[_link_key]  = _got_link
-                    st.session_state[_email_key] = _email_val
+                    st.session_state[_link_key]        = _got_link
+                    st.session_state[_saved_email_key] = _email_val
                     st.rerun()
 
         # ── STEP 2: Payment link + "I've Paid" polling ──────────────────────
         else:
             _pay_url     = st.session_state[_link_key]
-            _saved_email = st.session_state.get(_email_key, "")
+            _saved_email = st.session_state.get(_saved_email_key, "")
             _code_key    = f"_found_code_{_key}"
 
             # ── Code already found → show popup ─────────────────────────
