@@ -293,17 +293,48 @@ def razorpay_webhook():
 
 @app.route('/validate', methods=['GET'])
 def validate_code():
-    """Streamlit app calls this to check if an access code is valid."""
-    code = request.args.get('code', '').strip().upper()
+    """
+    Validate access code with two security layers:
+      1. Email binding  — code only works with the purchasing email
+      2. Activation cap — max 3 sessions per purchase (prevents sharing abuse)
+    """
+    code  = request.args.get('code',  '').strip().upper()
+    email = request.args.get('email', '').strip().lower()
+    MAX_ACTIVATIONS = 3
+
     if not code:
-        return jsonify({"valid": False}), 200
+        return jsonify({"valid": False, "reason": "no_code"}), 200
 
     result = get_supabase().table('pro_codes') \
-        .select('code') \
+        .select('code, email, activations') \
         .eq('code', code) \
         .execute()
 
-    return jsonify({"valid": bool(result.data)}), 200
+    if not result.data:
+        return jsonify({"valid": False, "reason": "invalid_code"}), 200
+
+    row          = result.data[0]
+    stored_email = (row.get('email') or '').strip().lower()
+    activations  = int(row.get('activations') or 0)
+
+    # Email binding: reject if emails don't match
+    if stored_email and email and stored_email != email:
+        app.logger.warning(f"Email mismatch for {code}: stored={stored_email} provided={email}")
+        return jsonify({"valid": False, "reason": "email_mismatch"}), 200
+
+    # Activation cap: reject if too many devices already activated
+    if activations >= MAX_ACTIVATIONS:
+        app.logger.warning(f"Code {code} hit activation limit ({activations})")
+        return jsonify({"valid": False, "reason": "max_activations"}), 200
+
+    # Valid — increment activation counter
+    get_supabase().table('pro_codes') \
+        .update({"activations": activations + 1}) \
+        .eq('code', code) \
+        .execute()
+
+    return jsonify({"valid": True}), 200
+
 
 
 @app.route('/get-code', methods=['GET'])

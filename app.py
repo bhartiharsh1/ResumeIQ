@@ -296,26 +296,36 @@ try:
 except Exception:
     WEBHOOK_SERVER_URL = ""
 
-def _validate_pro_code(code: str) -> bool:
-    """Check code against hardcoded list OR the webhook server (customer codes)."""
+def _validate_pro_code(code: str, email: str = "") -> bool | str:
+    """Check code against hardcoded list OR the webhook server (Supabase).
+    Returns True on success, or an error string on failure.
+    """
     code_up = code.strip().upper()
-    # 1. Hardcoded admin codes
+    # 1. Hardcoded admin codes (no email check needed)
     if code_up in {c.upper() for c in VALID_PRO_CODES}:
         return True
-    # 2. Dynamically generated codes stored in Supabase via webhook server
+    # 2. Dynamically generated codes — email-bound, activation-limited
     if WEBHOOK_SERVER_URL:
         try:
             import requests as _req
             resp = _req.get(
                 f"{WEBHOOK_SERVER_URL}/validate",
-                params={"code": code_up},
+                params={"code": code_up, "email": email.strip().lower()},
                 timeout=5
             )
             if resp.status_code == 200:
-                return resp.json().get("valid", False)
+                data = resp.json()
+                if data.get("valid"):
+                    return True
+                reason = data.get("reason", "invalid_code")
+                if reason == "email_mismatch":
+                    return "email_mismatch"
+                if reason == "max_activations":
+                    return "max_activations"
+                return "invalid_code"
         except Exception:
             pass
-    return False
+    return "invalid_code"
 
 # ── SIDEBAR PRO STATUS ─────────────────────────────────────────────────────────
 st.sidebar.divider()
@@ -581,11 +591,18 @@ border-radius:14px;padding:18px 22px;text-align:center;margin:14px 0 4px;">
             help="Code appears on screen after payment — or check your email."
         )
         if st.button("🔓 Unlock Pro", key=f"_wall_btn_{_key}", use_container_width=True):
-            if _validate_pro_code(_code):
+            _unlock_email = st.session_state.get(f"_wall_saved_email_{_key}", "")
+            _result = _validate_pro_code(_code, _unlock_email)
+            if _result is True:
                 st.session_state.is_pro = True
                 st.rerun()
+            elif _result == "email_mismatch":
+                st.error("❌ This code belongs to a different email address. Please use the email you paid with.")
+            elif _result == "max_activations":
+                st.error("⚠️ This code has reached its activation limit. Contact support if you believe this is an error.")
             else:
                 st.error("❌ Invalid code. Double-check or contact support.")
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
