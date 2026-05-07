@@ -162,6 +162,20 @@ def health():
     return jsonify({"status": "ok"}), 200
 
 
+@app.route('/debug-env', methods=['GET'])
+def debug_env():
+    """Check which environment variables are loaded (values hidden)."""
+    return jsonify({
+        "RAZORPAY_KEY_ID":        bool(RAZORPAY_KEY_ID),
+        "RAZORPAY_KEY_SECRET":    bool(RAZORPAY_KEY_SECRET),
+        "RAZORPAY_WEBHOOK_SECRET":bool(RAZORPAY_WEBHOOK_SECRET),
+        "GMAIL_USER":             bool(GMAIL_USER),
+        "GMAIL_APP_PASSWORD":     bool(GMAIL_APP_PASSWORD),
+        "SUPABASE_URL":           bool(SUPABASE_URL),
+        "SUPABASE_KEY":           bool(SUPABASE_KEY),
+    }), 200
+
+
 @app.route('/create-payment-link', methods=['POST'])
 def create_payment_link():
     """
