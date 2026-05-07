@@ -440,6 +440,7 @@ def pro_wall(feature_name, bullets):
             if st.button("⚡ Get My Payment Link →", key=f"_wall_gen_{_key}", use_container_width=True):
                 _email_val = _email.strip() if _email else ""
                 _name_val  = _name.strip()  if _name  else ""
+                _static_link = "https://rzp.io/rzp/xxU96u4d"
                 if not _email_val:
                     st.error("Please enter your email address to continue.")
                 elif WEBHOOK_SERVER_URL:
@@ -456,19 +457,19 @@ def pro_wall(feature_name, bullets):
                                 st.session_state[_email_key] = _email_val
                                 st.rerun()
                             else:
-                                try:
-                                    _err_detail = _resp.json().get("error", _resp.text[:120])
-                                except Exception:
-                                    _err_detail = _resp.text[:120]
-                                st.error(f"❌ Server error ({_resp.status_code}): {_err_detail}. Please try again.")
+                                # Fallback to static link (e.g. during Razorpay KYC activation)
+                                st.session_state[_link_key]  = _static_link
+                                st.session_state[_email_key] = _email_val
+                                st.rerun()
                         except _req.exceptions.Timeout:
                             st.error("⏱️ Server is waking up — it took too long this time. Please click the button again in ~10 seconds.")
                         except Exception as _ex:
                             st.error(f"❌ Could not reach payment server ({type(_ex).__name__}). Please try again in a moment.")
                 else:
                     # No webhook server configured — fallback to static link
-                    st.session_state[_link_key] = "https://rzp.io/rzp/OP1Bn0k"
+                    st.session_state[_link_key] = _static_link
                     st.rerun()
+
 
         # ── STEP 2: Show unique payment link ────────────────────────────────
         else:
