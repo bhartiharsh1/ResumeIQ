@@ -310,7 +310,8 @@ if _OAUTH_READY and "user_email" not in st.session_state:
             "https://accounts.google.com/o/oauth2/auth",
             "https://oauth2.googleapis.com/token",
             "https://oauth2.googleapis.com/token",
-            "https://oauth2.googleapis.com/revoke",
+            # Google's revoke endpoint doesn't support the httpx_oauth auth method
+            # — omit it to avoid MissingRevokeTokenAuthMethodError
         )
         _result = _oauth2.authorize_button(
             name="🔑  Sign in with Google",
