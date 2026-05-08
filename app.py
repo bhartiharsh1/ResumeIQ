@@ -429,6 +429,8 @@ def pro_wall(feature_name, bullets):
 
     _col_l, _col_mid, _col_r = st.columns([1, 3, 1])
     with _col_mid:
+        # Define _code_key here so Step 3 can always reference it
+        _code_key = f"_found_code_{_key}"
 
         # ── STEP 1: Generate a unique payment link ──────────────────────────
         if _link_key not in st.session_state:
@@ -480,7 +482,6 @@ def pro_wall(feature_name, bullets):
         else:
             _pay_url     = st.session_state[_link_key]
             _saved_email = st.session_state.get(_saved_email_key, "")
-            _code_key    = f"_found_code_{_key}"
 
             # ── Code already found → show popup ─────────────────────────
             if st.session_state.get(_code_key):
