@@ -4,6 +4,7 @@ import hashlib
 import random
 import string
 import smtplib
+from datetime import datetime, timezone
 import requests as http_requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -283,6 +284,17 @@ def razorpay_webhook():
         # 6. Send email
         send_email(customer_email, code, customer_name)
 
+        # 7. Upsert users table — mark user as Pro
+        try:
+            get_supabase().table('users').upsert({
+                'email':      customer_email,
+                'is_pro':     True,
+                'payment_id': payment_id,
+                'paid_at':    datetime.now(timezone.utc).isoformat(),
+            }, on_conflict='email').execute()
+        except Exception as _ue:
+            app.logger.warning(f"Could not upsert users table: {_ue}")
+
         app.logger.info(f"✅ Code {code} sent to {customer_email} (payment: {payment_id})")
         return jsonify({"status": "success", "code_sent_to": customer_email}), 200
 
@@ -335,6 +347,26 @@ def validate_code():
 
     return jsonify({"valid": True}), 200
 
+
+
+@app.route('/check-premium', methods=['GET'])
+def check_premium():
+    """
+    Check if a user's email has is_pro=True in the users table.
+    Called by the Streamlit app after the user pays.
+    """
+    email = request.args.get('email', '').strip().lower()
+    if not email:
+        return jsonify({"is_pro": False}), 200
+
+    result = get_supabase().table('users') \
+        .select('is_pro') \
+        .eq('email', email) \
+        .execute()
+
+    if result.data:
+        return jsonify({"is_pro": bool(result.data[0].get('is_pro', False))}), 200
+    return jsonify({"is_pro": False}), 200
 
 
 @app.route('/get-code', methods=['GET'])

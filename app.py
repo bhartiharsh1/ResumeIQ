@@ -10,6 +10,14 @@ except Exception:
 
 import streamlit as st
 import re
+try:
+    import jwt as _pyjwt
+except ImportError:
+    _pyjwt = None
+try:
+    from streamlit_oauth import OAuth2Component as _OAuth2Component
+except ImportError:
+    _OAuth2Component = None
 from utils.pdf_parser import extract_text_from_pdf
 from utils.skills import extract_skills
 from utils.info_extractor import extract_basic_info
@@ -19,6 +27,16 @@ from utils.advanced_ats import impact_score
 from data.skills_db import SKILLS_DB
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="ResumeIQ Platform", layout="wide", page_icon="🧠")
+
+# ── GOOGLE OAUTH CONFIG ───────────────────────────────────────────────────────────────────────
+try:
+    _GOOGLE_CLIENT_ID     = st.secrets.get("GOOGLE_CLIENT_ID", "")
+    _GOOGLE_CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
+    _APP_URL              = st.secrets.get("APP_URL", "https://resumeiq.streamlit.app")
+except Exception:
+    _GOOGLE_CLIENT_ID = _GOOGLE_CLIENT_SECRET = _APP_URL = ""
+
+_OAUTH_READY = bool(_GOOGLE_CLIENT_ID and _GOOGLE_CLIENT_SECRET and _OAuth2Component)
 
 # ── GLOBAL 3D THEME ──────────────────────────────────────────────────────────
 st.markdown("""
@@ -275,6 +293,52 @@ div[data-baseweb="select"] > div {
 </style>
 """, unsafe_allow_html=True)
 
+# ── GOOGLE LOGIN GATE ───────────────────────────────────────────────────────────────────────
+if _OAUTH_READY and "user_email" not in st.session_state:
+    st.markdown("""
+<div style="max-width:460px;margin:80px auto;text-align:center;">
+  <div style="font-size:3.5rem;margin-bottom:16px">🧠</div>
+  <h1 style="background:linear-gradient(135deg,#667eea,#a78bfa);-webkit-background-clip:text;
+             -webkit-text-fill-color:transparent;font-size:2rem;margin-bottom:8px;">ResumeIQ</h1>
+  <p style="color:#9ca3af;font-size:0.95rem;margin-bottom:32px;">Sign in to access AI-powered resume tools.</p>
+</div>
+""", unsafe_allow_html=True)
+    _login_col = st.columns([1, 2, 1])[1]
+    with _login_col:
+        _oauth2 = _OAuth2Component(
+            _GOOGLE_CLIENT_ID, _GOOGLE_CLIENT_SECRET,
+            "https://accounts.google.com/o/oauth2/auth",
+            "https://oauth2.googleapis.com/token",
+            "https://oauth2.googleapis.com/token",
+            "https://oauth2.googleapis.com/revoke",
+        )
+        _result = _oauth2.authorize_button(
+            name="🔑  Sign in with Google",
+            redirect_uri=_APP_URL,
+            scope="openid email profile",
+            key="google_login",
+            extras_params={"prompt": "select_account"},
+            use_container_width=True,
+        )
+        if _result and "token" in _result:
+            _tok = _result["token"]
+            try:
+                _claims = _pyjwt.decode(
+                    _tok.get("id_token", ""),
+                    options={"verify_signature": False}
+                )
+                st.session_state.user_email = _claims.get("email", "")
+                st.session_state.user_name  = _claims.get("name",  "")
+                st.session_state.user_pic   = _claims.get("picture", "")
+            except Exception:
+                st.session_state.user_email = ""
+            st.rerun()
+    st.stop()
+
+# ── User info (populated after login, or empty if OAuth not configured) ──────────────────
+_USER_EMAIL = st.session_state.get("user_email", "")
+_USER_NAME  = st.session_state.get("user_name",  "Guest")
+
 st.sidebar.title("🧭 Navigation")
 page = st.sidebar.radio("Go to:", ["📊 Single Analyzer", "⚖️ A/B Testing Engine", "🎯 Career Tools", "🙋 Resume Help"])
 
@@ -290,11 +354,36 @@ except Exception:
     VALID_PRO_CODES = set()
 VALID_PRO_CODES.update({"RESUMEIQ-PRO", "RIQA-2024", "UNLOCK-PRO-IQ"})
 
-# ── WEBHOOK SERVER URL (set in secrets.toml as webhook_url) ───────────────────
+# ── WEBHOOK SERVER URL ─────────────────────────────────────────────────────────────────────
 try:
     WEBHOOK_SERVER_URL = st.secrets.get("webhook_url", "").rstrip("/")
 except Exception:
     WEBHOOK_SERVER_URL = ""
+
+
+def _check_premium_db(email: str) -> bool:
+    """Poll /check-premium on the webhook server — returns True if email has is_pro=True."""
+    if not email or not WEBHOOK_SERVER_URL:
+        return False
+    try:
+        import requests as _req
+        _r = _req.get(
+            f"{WEBHOOK_SERVER_URL}/check-premium",
+            params={"email": email.strip().lower()},
+            timeout=5,
+        )
+        if _r.status_code == 200:
+            return bool(_r.json().get("is_pro", False))
+    except Exception:
+        pass
+    return False
+
+
+# ── On load: refresh premium status from DB once per login session ───────────────────
+if _USER_EMAIL and not st.session_state.is_pro:
+    if st.session_state.get("_pro_db_checked") != _USER_EMAIL:
+        st.session_state.is_pro          = _check_premium_db(_USER_EMAIL)
+        st.session_state._pro_db_checked = _USER_EMAIL
 
 def _validate_pro_code(code: str, email: str = "") -> bool | str:
     """Check code against hardcoded list OR the webhook server (Supabase).
@@ -327,26 +416,42 @@ def _validate_pro_code(code: str, email: str = "") -> bool | str:
             pass
     return "invalid_code"
 
-# ── SIDEBAR PRO STATUS ─────────────────────────────────────────────────────────
+# ── SIDEBAR: user avatar + pro status + sign out ──────────────────────────────────
 st.sidebar.divider()
+if _USER_EMAIL:
+    _pic = st.session_state.get("user_pic", "")
+    _avatar = (f'<img src="{_pic}" style="width:100%;height:100%;object-fit:cover;"/>'
+               if _pic else
+               f'<div style="width:100%;height:100%;background:linear-gradient(135deg,#667eea,#a78bfa);'
+               f'display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;'
+               f'font-size:1rem;">{_USER_NAME[:1].upper()}</div>')
+    st.sidebar.markdown(
+        f"""<div style='display:flex;align-items:center;gap:10px;padding:8px 4px;'>
+          <div style='width:34px;height:34px;border-radius:50%;overflow:hidden;
+                      border:2px solid rgba(99,102,241,0.5);flex-shrink:0;'>{_avatar}</div>
+          <div style='overflow:hidden;'>
+            <div style='color:#e2eaf8;font-weight:700;font-size:0.84rem;white-space:nowrap;
+                        overflow:hidden;text-overflow:ellipsis;'>{_USER_NAME}</div>
+            <div style='color:#6b7280;font-size:0.72rem;white-space:nowrap;
+                        overflow:hidden;text-overflow:ellipsis;'>{_USER_EMAIL}</div>
+          </div></div>""",
+        unsafe_allow_html=True,
+    )
 if not st.session_state.is_pro:
     st.sidebar.markdown(
-        """
-        <div style='background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);
-                    border-radius:10px;padding:12px 14px;text-align:center;'>
+        """<div style='background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);
+                    border-radius:10px;padding:12px 14px;text-align:center;margin-top:6px;'>
             <div style='font-size:1rem;font-weight:800;color:#f59e0b;margin-bottom:4px;'>⚡ Upgrade to Pro</div>
-            <div style='font-size:0.73rem;color:#9ca3af;margin-bottom:10px;'>Unlock all AI features — ₹79 one-time</div>
-            <div style='font-size:0.75rem;color:#9ca3af;margin-top:4px;'>
-                Enter your email on the feature page to get a personalized payment link →
-            </div>
-        </div>
-        """,
+            <div style='font-size:0.73rem;color:#9ca3af;'>Unlock all AI features — ₹79 one-time</div>
+        </div>""",
         unsafe_allow_html=True
     )
 else:
     st.sidebar.success("✅ Pro Active — All features unlocked!")
-    if st.sidebar.button("🔒 Sign Out of Pro", key="_signout_btn", use_container_width=True):
-        st.session_state.is_pro = False
+if _USER_EMAIL:
+    if st.sidebar.button("🚪 Sign Out", key="_signout_btn", use_container_width=True):
+        for _k in ["user_email", "user_name", "user_pic", "is_pro", "_pro_db_checked"]:
+            st.session_state.pop(_k, None)
         st.rerun()
 
 

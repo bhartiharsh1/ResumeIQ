@@ -6,3 +6,6 @@ numpy
 torch
 python-dotenv
 googlesearch-python
+streamlit-oauth
+PyJWT
+requests
