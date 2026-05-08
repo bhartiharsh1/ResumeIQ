@@ -448,29 +448,33 @@ def pro_wall(feature_name, bullets):
                 )
 
             if st.button("⚡ Get My Payment Link →", key=f"_wall_gen_{_key}", use_container_width=True):
-                _email_val   = (_email or "").strip()
-                _name_val    = (_name  or "").strip()
-                _static_link = "https://rzp.io/rzp/xxU96u4d"
+                _email_val = (_email or "").strip()
+                _name_val  = (_name  or "").strip()
                 if not _email_val:
                     st.error("Please enter your email address to continue.")
+                elif not WEBHOOK_SERVER_URL:
+                    st.error("⚠️ Payment server is not configured. Please contact support.")
                 else:
-                    _got_link = _static_link   # default fallback
-                    if WEBHOOK_SERVER_URL:
-                        with st.spinner("⏳ Generating your personal payment link..."):
-                            try:
-                                import requests as _req
-                                _resp = _req.post(
-                                    f"{WEBHOOK_SERVER_URL}/create-payment-link",
-                                    json={"email": _email_val, "name": _name_val},
-                                    timeout=30,
-                                )
-                                if _resp.status_code == 200:
-                                    _got_link = _resp.json().get("url", _static_link)
-                            except Exception:
-                                pass  # silently use static link
-                    st.session_state[_link_key]        = _got_link
-                    st.session_state[_saved_email_key] = _email_val
-                    st.rerun()
+                    with st.spinner("⏳ Generating your personal payment link..."):
+                        try:
+                            import requests as _req
+                            _resp = _req.post(
+                                f"{WEBHOOK_SERVER_URL}/create-payment-link",
+                                json={"email": _email_val, "name": _name_val},
+                                timeout=30,
+                            )
+                            if _resp.status_code == 200:
+                                _got_link = _resp.json().get("url", "")
+                                if _got_link:
+                                    st.session_state[_link_key]        = _got_link
+                                    st.session_state[_saved_email_key] = _email_val
+                                    st.rerun()
+                                else:
+                                    st.error("❌ Could not generate a payment link. Please try again.")
+                            else:
+                                st.error(f"❌ Server error ({_resp.status_code}). Please try again in a moment.")
+                        except Exception as _e:
+                            st.error("❌ Could not reach the payment server. Check your connection and try again.")
 
         # ── STEP 2: Payment link + "I've Paid" polling ──────────────────────
         else:
@@ -550,58 +554,93 @@ border-radius:14px;padding:18px 22px;text-align:center;margin:14px 0 4px;">
                     unsafe_allow_html=True,
                 )
                 st.info(f"⚠️ **Important:** When Razorpay asks for your email, enter **{_saved_email}** (same as above) so we can match your payment and show your code.")
-                st.caption("After paying, click the button below — your unique code appears on screen instantly!")
+
+                # ── Prominent callout for users who already see "Payment Completed" ──
+                st.markdown("""
+<div style="margin-top:4px;margin-bottom:12px;padding:14px 18px;border-radius:12px;
+            background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.4);
+            border-left:4px solid #10b981;">
+  <div style="color:#10b981;font-weight:800;font-size:0.9rem;margin-bottom:4px;">
+    ✅ Razorpay showing &ldquo;Payment Completed&rdquo;?
+  </div>
+  <div style="color:#9ca3af;font-size:0.82rem;line-height:1.6;">
+    That means your payment went through! <strong style="color:#e2eaf8;">Do NOT click the pay button again.</strong><br>
+    Click <strong style="color:#10b981;">&ldquo;✅ I&rsquo;ve Paid — Show My Code!&rdquo;</strong> below to instantly retrieve your access code.
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
                 col1, col2 = st.columns([3, 1])
                 with col1:
                     if st.button("✅ I've Paid — Show My Code!", key=f"_wall_paid_{_key}", use_container_width=True):
                         _found = False
                         if WEBHOOK_SERVER_URL:
-                            try:
-                                import requests as _req
-                                _r = _req.get(
-                                    f"{WEBHOOK_SERVER_URL}/get-code",
-                                    params={"email": _saved_email},
-                                    timeout=10,
-                                )
-                                if _r.status_code == 200 and _r.json().get("found"):
-                                    st.session_state[_code_key] = _r.json()["code"]
-                                    _found = True
-                            except Exception:
-                                pass
+                            import time as _time
+                            import requests as _req
+                            with st.spinner("🔍 Verifying your payment... please wait"):
+                                for _attempt in range(3):  # retry up to 3× with 3s gap
+                                    try:
+                                        _r = _req.get(
+                                            f"{WEBHOOK_SERVER_URL}/get-code",
+                                            params={"email": _saved_email},
+                                            timeout=10,
+                                        )
+                                        if _r.status_code == 200 and _r.json().get("found"):
+                                            st.session_state[_code_key] = _r.json()["code"]
+                                            _found = True
+                                            break
+                                    except Exception:
+                                        pass
+                                    if not _found and _attempt < 2:
+                                        _time.sleep(3)
                         if _found:
                             st.rerun()
                         else:
-                            st.warning("⏳ Payment still processing — wait ~10 seconds and try again.")
+                            st.warning("⏳ Payment not detected yet — wait ~15 seconds and try again. If you already paid, scroll down and manually enter any code you received by email.")
                 with col2:
                     if st.button("🔄 Reset", key=f"_wall_regen_{_key}"):
-                        del st.session_state[_link_key]
+                        for _k in [_link_key, _code_key, _saved_email_key, f"_wall_code_{_key}"]:
+                            st.session_state.pop(_k, None)
                         st.rerun()
 
         # ── STEP 3: Enter access code ────────────────────────────────────────
         st.divider()
         st.markdown('<div class="unlock-strip-label">Step 2 (after paying) · Enter your access code</div>',
                     unsafe_allow_html=True)
-        _prefill = st.session_state.get(f"_found_code_{_key}", "")
+        _prefill         = st.session_state.get(_code_key, "")
+        _code_widget_key = f"_wall_code_{_key}"
+        # ── Key fix: Streamlit ignores value= if the widget key already exists
+        #    in session_state. Set it explicitly so the found code is pre-filled.
+        if _prefill and not st.session_state.get(_code_widget_key, "").strip():
+            st.session_state[_code_widget_key] = _prefill
         _code = st.text_input(
             "🔑 Access Code",
-            value=_prefill,
             placeholder="e.g. RIQ-A1B2-C3D4-E5F6",
-            key=f"_wall_code_{_key}",
+            key=_code_widget_key,
             help="Code appears on screen after payment — or check your email."
         )
-        if st.button("🔓 Unlock Pro", key=f"_wall_btn_{_key}", use_container_width=True):
-            _unlock_email = st.session_state.get(f"_wall_saved_email_{_key}", "")
-            _result = _validate_pro_code(_code, _unlock_email)
-            if _result is True:
-                st.session_state.is_pro = True
+        col_unlock, col_startover = st.columns([3, 1])
+        with col_unlock:
+            if st.button("🔓 Unlock Pro", key=f"_wall_btn_{_key}", use_container_width=True):
+                _unlock_email = st.session_state.get(f"_wall_saved_email_{_key}", "")
+                _result = _validate_pro_code(_code, _unlock_email)
+                if _result is True:
+                    st.session_state.is_pro = True
+                    # Clean up paywall state after successful unlock
+                    for _k in [_link_key, _code_key, _saved_email_key, _code_widget_key]:
+                        st.session_state.pop(_k, None)
+                    st.rerun()
+                elif _result == "email_mismatch":
+                    st.error("❌ This code belongs to a different email address. Please use the email you paid with.")
+                elif _result == "max_activations":
+                    st.error("⚠️ This code has reached its activation limit. Contact support if you believe this is an error.")
+                else:
+                    st.error("❌ Invalid code. Double-check or contact support.")
+        with col_startover:
+            if st.button("🔄 Start Over", key=f"_wall_startover_{_key}"):
+                for _k in [_link_key, _code_key, _saved_email_key, _code_widget_key]:
+                    st.session_state.pop(_k, None)
                 st.rerun()
-            elif _result == "email_mismatch":
-                st.error("❌ This code belongs to a different email address. Please use the email you paid with.")
-            elif _result == "max_activations":
-                st.error("⚠️ This code has reached its activation limit. Contact support if you believe this is an error.")
-            else:
-                st.error("❌ Invalid code. Double-check or contact support.")
 
 
 
