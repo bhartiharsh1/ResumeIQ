@@ -473,6 +473,16 @@ def pro_wall(feature_name, bullets):
                                     st.rerun()
                                 else:
                                     st.error("❌ Could not generate a payment link. Please try again.")
+                            elif _resp.status_code == 502:
+                                try:
+                                    _detail = _resp.json().get("error", "Razorpay API rejected the request.")
+                                except Exception:
+                                    _detail = "Razorpay API rejected the request."
+                                st.error(f"❌ Razorpay API error: {_detail}")
+                                st.warning("🔧 **Fix**: Check that `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are correctly set in your Railway environment variables. Use **live mode** keys if this is production.")
+                            elif _resp.status_code == 500:
+                                st.error("❌ Payment server: Razorpay API keys are not configured on the server.")
+                                st.warning("🔧 **Fix**: Add `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` to your Railway environment variables.")
                             else:
                                 st.error(f"❌ Server error ({_resp.status_code}). Please try again in a moment.")
                         except Exception as _e:
