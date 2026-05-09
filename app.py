@@ -374,6 +374,50 @@ if _USER_EMAIL:
         st.rerun()
 
 
+
+# ── FREEMIUM STATE ────────────────────────────────────────────────────────────
+if "is_pro" not in st.session_state:
+    st.session_state.is_pro = False
+if "cover_letters_used" not in st.session_state:
+    st.session_state.cover_letters_used = 0
+if "job_matches_used" not in st.session_state:
+    st.session_state.job_matches_used = 0
+
+def pro_wall(feature_name, bullets):
+    if st.session_state.get("is_pro", False):
+        return False
+    bullets_html = "".join([f"<li>{b}</li>" for b in bullets])
+    _key = feature_name.lower().replace(" ", "_").replace("/", "")
+    st.markdown(f'''
+    <div style="background:linear-gradient(135deg, #0f1520, #160e2a); border: 1px solid rgba(245,158,11,0.4); border-radius:18px; padding:24px; margin-bottom:20px; text-align:center;">
+        <h2 style="color:#f59e0b; margin-bottom:12px; font-weight: 800;">🔒 {feature_name} — Pro Feature</h2>
+        <ul style="text-align:left; color:#e2eaf8; margin-bottom:20px; font-size: 0.95rem; line-height: 1.6;">
+            {bullets_html}
+        </ul>
+        <hr style="border:none;height:1px;background:rgba(255,255,255,0.1);margin:20px 0;"/>
+        <h3 style="color:#10b981;margin-bottom:8px;font-weight:700;">🚀 Upgrade to Pro (₹79)</h3>
+        <p style="color:#9ca3af;font-size:14px;margin-bottom:16px;">Scan & pay via Google Pay, PhonePe or any UPI app, then enter your access code below.</p>
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi%3A%2F%2Fpay%3Fpa%3Dbhartiharsh64-1%40oksbi%26pn%3DHarsh%2520Bharti%26cu%3DINR" style="border-radius:12px;border:3px solid #f59e0b;margin-bottom:12px;" alt="UPI QR"/>
+        <p style="color:#e2eaf8;margin:4px 0;">UPI ID: <b>bhartiharsh64-1@oksbi</b></p>
+        <p style="color:#9ca3af;font-size:14px;margin-bottom:20px;">Once paid, send a screenshot on WhatsApp to <b>7800326119</b> to instantly receive your Access Code.</p>
+    </div>
+    ''', unsafe_allow_html=True)
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        access_code = st.text_input("🔑 Enter Access Code:", type="password", key=f"code_{_key}")
+    with c2:
+        st.write("")
+        st.write("")
+        if st.button("Unlock 🔓", key=f"btn_{_key}", use_container_width=True):
+            # We can use a master code or valid generated codes
+            if access_code.strip() == "HARSH-PRO-2026":
+                st.session_state.is_pro = True
+                st.rerun()
+            else:
+                st.error("❌ Invalid Code!")
+    return True
+
+
 # ── BADGE CSS ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -601,10 +645,15 @@ if page == "🎯 Career Tools":
             if not all([cl_resume, cl_jd.strip(), cl_name.strip(), cl_company.strip(), cl_role.strip()]):
                 st.error("Please fill in all fields and upload your resume.")
             else:
+                if not st.session_state.is_pro and st.session_state.cover_letters_used >= 2:
+                    if pro_wall("Unlimited Cover Letters", ["You have used your 2 free cover letters for this session.", "Upgrade to Pro to generate unlimited personalized cover letters."]):
+                        st.stop()
                 with st.spinner("Crafting your personalized cover letter..."):
                     cl_text = extract_text_from_pdf(cl_resume)
                     from utils.cover_letter import generate_cover_letter
                     st.session_state["cl_result"] = generate_cover_letter(cl_text, cl_jd, cl_name, cl_company, cl_role, cl_tone)
+                    if not st.session_state.is_pro:
+                        st.session_state.cover_letters_used += 1
 
         if "cl_result" in st.session_state:
             res = st.session_state["cl_result"]
@@ -697,7 +746,11 @@ if page == "🎯 Career Tools":
     # ── TAB 3: Interview Predictor ───────────────────────────────────────────
     with tab3:
         st.subheader("🎤 Interview Question Predictor")
-        st.write("Upload your resume to generate likely interview questions specific to your background and target role.")
+        if not st.session_state.is_pro:
+            if pro_wall("Interview Predictor", ["AI-generated behavioral, technical & role-specific questions", "Personalized to your resume background", "Company-specific questions when JD is provided", "Practice-ready format with Q-by-Q breakdown"]):
+                pass
+        else:
+            st.write("Upload your resume to generate likely interview questions specific to your background and target role.")
         iq_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"], key="iq_resume")
         iq_jd = st.text_area("Job Description (optional — unlocks company & role-specific questions)", height=120, key="iq_jd")
         if st.button("Generate Questions 🎤", key="iq_btn"):
@@ -736,37 +789,41 @@ if page == "🎯 Career Tools":
     # ── TAB 4: Cold Outreach Writer ───────────────────────────────────────────
     with tab4:
         st.subheader("📨 Cold Outreach Writer")
-        st.write("Generate cold emails and LinkedIn messages personalized from your resume — written to actually get replies.")
-        co_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"], key="co_resume")
-        c1, c2, c3 = st.columns(3)
-        with c1: co_company = st.text_input("Target Company", key="co_company")
-        with c2: co_role    = st.text_input("Target Role",    key="co_role")
-        with c3: co_ptype   = st.selectbox("Writing to...", ["Recruiter", "Alumni", "Referral", "Hiring Manager"], key="co_ptype")
-        co_pname = st.text_input("Their Name (optional — makes it more personal)", key="co_pname")
-        if st.button("Generate Outreach 📨", key="co_btn"):
-            if not all([co_resume, co_company.strip(), co_role.strip()]):
-                st.error("Please upload resume and fill in company + role.")
-            else:
-                with st.spinner("Writing your outreach messages..."):
-                    co_text = extract_text_from_pdf(co_resume)
-                    from utils.cold_outreach import generate_outreach
-                    st.session_state["co_result"] = generate_outreach(co_text, co_company, co_role, co_ptype, co_pname)
-        if "co_result" in st.session_state:
-            res = st.session_state["co_result"]
-            if "error" in res:
-                st.error(f"❌ {res['error']}")
-            else:
-                st.divider()
-                st.success("✅ Outreach messages ready!")
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.markdown('<div class="ct-label">📧 Cold Email</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="ct-subject">Subject: <b>{res.get("email_subject","")}</b></div>', unsafe_allow_html=True)
-                    st.text_area("Email body — select all to copy", value=res.get("email_body",""), height=220, key="co_email_display")
-                with col_b:
-                    st.markdown('<div class="ct-label">🔗 LinkedIn Message</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="ct-subject">Connection request note (≤80 words)</div>', unsafe_allow_html=True)
-                    st.text_area("LinkedIn message — select all to copy", value=res.get("linkedin_message",""), height=220, key="co_li_display")
+        if not st.session_state.is_pro:
+            if pro_wall("Cold Email & LinkedIn Outreach Generator", ["Personalized cold emails drafted from your resume", "LinkedIn connection messages (≤80 words, high-reply rate)", "Tailored for Recruiter, Alumni, Referral or Hiring Manager", "Written to actually get responses — not generic templates"]):
+                pass
+        else:
+            st.write("Generate cold emails and LinkedIn messages personalized from your resume — written to actually get replies.")
+            co_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"], key="co_resume")
+            c1, c2, c3 = st.columns(3)
+            with c1: co_company = st.text_input("Target Company", key="co_company")
+            with c2: co_role    = st.text_input("Target Role",    key="co_role")
+            with c3: co_ptype   = st.selectbox("Writing to...", ["Recruiter", "Alumni", "Referral", "Hiring Manager"], key="co_ptype")
+            co_pname = st.text_input("Their Name (optional — makes it more personal)", key="co_pname")
+            if st.button("Generate Outreach 📨", key="co_btn"):
+                if not all([co_resume, co_company.strip(), co_role.strip()]):
+                    st.error("Please upload resume and fill in company + role.")
+                else:
+                    with st.spinner("Writing your outreach messages..."):
+                        co_text = extract_text_from_pdf(co_resume)
+                        from utils.cold_outreach import generate_outreach
+                        st.session_state["co_result"] = generate_outreach(co_text, co_company, co_role, co_ptype, co_pname)
+            if "co_result" in st.session_state:
+                res = st.session_state["co_result"]
+                if "error" in res:
+                    st.error(f"❌ {res['error']}")
+                else:
+                    st.divider()
+                    st.success("✅ Outreach messages ready!")
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        st.markdown('<div class="ct-label">📧 Cold Email</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="ct-subject">Subject: <b>{res.get("email_subject","")}</b></div>', unsafe_allow_html=True)
+                        st.text_area("Email body — select all to copy", value=res.get("email_body",""), height=220, key="co_email_display")
+                    with col_b:
+                        st.markdown('<div class="ct-label">🔗 LinkedIn Message</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="ct-subject">Connection request note (≤80 words)</div>', unsafe_allow_html=True)
+                        st.text_area("LinkedIn message — select all to copy", value=res.get("linkedin_message",""), height=220, key="co_li_display")
     st.stop()
 
 
@@ -775,6 +832,10 @@ if page == "⚖️ A/B Testing Engine":
 
     st.title("⚖️ Resume A/B Testing Engine")
     st.write("Mathematically compare two resume versions against a job description — data-driven winner selection.")
+
+    if not st.session_state.is_pro:
+        if pro_wall("A/B Testing Engine", ["Upload Resume A vs Resume B — AI picks the winner", "Full ATS format score + semantic JD alignment comparison", "Expert LLM verdict with key difference breakdown", "Recruiter-perspective summary on which resume to submit"]):
+            st.stop()
 
     col1, col2 = st.columns(2)
     with col1:
@@ -918,10 +979,17 @@ if page == "📊 Single Analyzer":
         c1, c2, c3 = st.columns([1, 1.2, 1.2])
         with c1:
             st.metric("Shortlist Probability", f"{p_val}%", delta=f"{p_val - 45.0:.1f}% vs Average")
-        with c2:
-            st.metric("Applicant Tier", prob_data["tier"])
-        with c3:
-            st.info(f"💡 {prob_data['insight']}")
+        
+        if not st.session_state.is_pro:
+            with c2:
+                st.metric("Applicant Tier", "🔒 Pro")
+            with c3:
+                st.info("💡 Unlock Pro to see your specific applicant tier and actionable insight roadmap.")
+        else:
+            with c2:
+                st.metric("Applicant Tier", prob_data["tier"])
+            with c3:
+                st.info(f"💡 {prob_data['insight']}")
         st.write("### Market Benchmark Comparison")
         st.progress(int(p_val))
         st.caption(f"**Your Score:** {p_val}% | **Average Applicant:** ~45% | **Top 10% Cutoff:** ~85%")
@@ -937,12 +1005,19 @@ if page == "📊 Single Analyzer":
             if "error" in suggestions_list[0]:
                 st.error(f"❌ Smart Suggestions Error: {suggestions_list[0]['error']}")
             else:
-                for idx, sug in enumerate(suggestions_list):
+                # Show only first 2 for free
+                limit = len(suggestions_list) if st.session_state.is_pro else 2
+                
+                for idx, sug in enumerate(suggestions_list[:limit]):
                     with st.expander(f"⚠️ Issue: {sug.get('issue', 'Needs Improvement')} (Confidence: {sug.get('confidence_score', 0)})"):
                         st.write("**Original Line:**")
                         st.error(sug.get('original_line'))
                         st.write("**Suggested Improvement:**")
                         st.success(sug.get('improved_suggestion'))
+                
+                if not st.session_state.is_pro and len(suggestions_list) > 2:
+                    st.warning(f"🔒 {len(suggestions_list) - 2} more advanced line-level suggestions are hidden.")
+                    pro_wall("Advanced Smart Suggestions", ["Line-by-line feedback on every single bullet point", "Confidence-scored issue detection", "Side-by-side original vs improved suggestions", "Personalized to your target role"])
         else:
             st.info("No major line-level issues found! Your resume bullets look strong.")
 
@@ -950,51 +1025,61 @@ if page == "📊 Single Analyzer":
 
         # -------- AI RESUME REWRITER — 🔒 PRO --------
         st.subheader("✨ AI Resume Rewriter")
-        with st.spinner("Intelligently scanning resume for lines to improve..."):
-            from utils.bullet_extractor import extract_bullets_from_resume
-            valid_bullets_raw = extract_bullets_from_resume(resume_text)
-        valid_bullets = list(dict.fromkeys(valid_bullets_raw))
-        options = ["📝 Type or paste a custom bullet point..."] + valid_bullets
-        selected_option = st.selectbox("Select a bullet from your resume to enhance:", options)
-        if selected_option == "📝 Type or paste a custom bullet point...":
-            bullet_to_rewrite = st.text_area("Paste original bullet point:")
+        if not st.session_state.is_pro:
+            if pro_wall("AI Resume Rewriter", ["Select any bullet from your resume to instantly upgrade", "Basic Polish or Aggressive Transformation modes", "Before vs After comparison with ATS-optimized output", "AI feedback explaining every rewrite decision"]):
+                pass
         else:
-            bullet_to_rewrite = selected_option
-        if bullet_to_rewrite:
-            strength = st.radio("Rewrite Strength", ["Basic Polish", "Aggressive Transformation"], horizontal=True)
-            if st.button("Rewrite Bullet 🚀"):
-                with st.spinner("Analyzing and rewriting..."):
-                    from utils.llm_rewriter import rewrite_bullet
-                    result = rewrite_bullet(bullet_to_rewrite, selected_profile, strength)
-                    if "error" in result:
-                        st.error(f"Failed to generate rewrite: {result['error']}")
-                    else:
-                        st.success("Bullet Transformed Successfully!")
-                        colA, colB = st.columns(2)
-                        with colA:
-                            st.subheader("🔴 Before")
-                            st.error(bullet_to_rewrite)
-                        with colB:
-                            st.subheader("🟢 After (Optimized)")
-                            st.success(result.get("rewritten_bullet", "Error: Missing response data"))
-                        st.write("💡 **AI Feedback:**")
-                        st.info(result.get("feedback_reason", "No feedback provided by model."))
+            with st.spinner("Intelligently scanning resume for lines to improve..."):
+                from utils.bullet_extractor import extract_bullets_from_resume
+                valid_bullets_raw = extract_bullets_from_resume(resume_text)
+            valid_bullets = list(dict.fromkeys(valid_bullets_raw))
+            options = ["📝 Type or paste a custom bullet point..."] + valid_bullets
+            selected_option = st.selectbox("Select a bullet from your resume to enhance:", options)
+            if selected_option == "📝 Type or paste a custom bullet point...":
+                bullet_to_rewrite = st.text_area("Paste original bullet point:")
+            else:
+                bullet_to_rewrite = selected_option
+            if bullet_to_rewrite:
+                strength = st.radio("Rewrite Strength", ["Basic Polish", "Aggressive Transformation"], horizontal=True)
+                if st.button("Rewrite Bullet 🚀"):
+                    with st.spinner("Analyzing and rewriting..."):
+                        from utils.llm_rewriter import rewrite_bullet
+                        result = rewrite_bullet(bullet_to_rewrite, selected_profile, strength)
+                        if "error" in result:
+                            st.error(f"Failed to generate rewrite: {result['error']}")
+                        else:
+                            st.success("Bullet Transformed Successfully!")
+                            colA, colB = st.columns(2)
+                            with colA:
+                                st.subheader("🔴 Before")
+                                st.error(bullet_to_rewrite)
+                            with colB:
+                                st.subheader("🟢 After (Optimized)")
+                                st.success(result.get("rewritten_bullet", "Error: Missing response data"))
+                            st.write("💡 **AI Feedback:**")
+                            st.info(result.get("feedback_reason", "No feedback provided by model."))
 
         st.divider()
 
         # -------- JOB MATCH — FREE --------
-        st.markdown('<span class="badge-free">Free</span>', unsafe_allow_html=True)
+        st.markdown('<span class="badge-free">Free (Limited)</span>', unsafe_allow_html=True)
         st.subheader("📄 Job Match")
 
         jd = st.text_area("Paste Job Description")
 
         if jd:
-            final_score, semantic_score, skill_score = jd_match_final(
-                resume_text, jd, present, missing
-            )
+            if not st.session_state.is_pro and st.session_state.job_matches_used >= 1:
+                if pro_wall("Unlimited Job Matches", ["You have used your 1 free job match for this session.", "Upgrade to Pro to test your resume against unlimited job descriptions."]):
+                    pass
+            else:
+                if not st.session_state.is_pro:
+                    st.session_state.job_matches_used += 1
+                final_score, semantic_score, skill_score = jd_match_final(
+                    resume_text, jd, present, missing
+                )
 
-            st.metric("🎯 Match Score", f"{final_score:.2f}/100")
-
-            st.write(f"🤖 Semantic Match: {semantic_score:.2f}%")
-            st.write(f"🧠 Skill Match: {skill_score:.2f}%")
+                st.metric("🎯 Match Score", f"{final_score:.2f}/100")
+                
+                st.write(f"🤖 Semantic Match: {semantic_score:.2f}%")
+                st.write(f"🧠 Skill Match: {skill_score:.2f}%")
 
