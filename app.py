@@ -343,79 +343,7 @@ _USER_NAME  = st.session_state.get("user_name",  "Guest")
 st.sidebar.title("🧭 Navigation")
 page = st.sidebar.radio("Go to:", ["📊 Single Analyzer", "⚖️ A/B Testing Engine", "🎯 Career Tools", "🙋 Resume Help"])
 
-# ── PRO SESSION STATE ──────────────────────────────────────────────────────────
-if "is_pro" not in st.session_state:
-    st.session_state.is_pro = False
 
-# ── ADMIN / HARDCODED CODES (fallback + owner access) ─────────────────────────
-try:
-    _raw = st.secrets.get("pro_codes", "")
-    VALID_PRO_CODES = set(c.strip() for c in _raw.split(",") if c.strip())
-except Exception:
-    VALID_PRO_CODES = set()
-VALID_PRO_CODES.update({"RESUMEIQ-PRO", "RIQA-2024", "UNLOCK-PRO-IQ"})
-
-# ── WEBHOOK SERVER URL ─────────────────────────────────────────────────────────────────────
-try:
-    WEBHOOK_SERVER_URL = st.secrets.get("webhook_url", "").rstrip("/")
-except Exception:
-    WEBHOOK_SERVER_URL = ""
-
-
-def _check_premium_db(email: str) -> bool:
-    """Poll /check-premium on the webhook server — returns True if email has is_pro=True."""
-    if not email or not WEBHOOK_SERVER_URL:
-        return False
-    try:
-        import requests as _req
-        _r = _req.get(
-            f"{WEBHOOK_SERVER_URL}/check-premium",
-            params={"email": email.strip().lower()},
-            timeout=5,
-        )
-        if _r.status_code == 200:
-            return bool(_r.json().get("is_pro", False))
-    except Exception:
-        pass
-    return False
-
-
-# ── On load: refresh premium status from DB once per login session ───────────────────
-if _USER_EMAIL and not st.session_state.is_pro:
-    if st.session_state.get("_pro_db_checked") != _USER_EMAIL:
-        st.session_state.is_pro          = _check_premium_db(_USER_EMAIL)
-        st.session_state._pro_db_checked = _USER_EMAIL
-
-def _validate_pro_code(code: str, email: str = "") -> bool | str:
-    """Check code against hardcoded list OR the webhook server (Supabase).
-    Returns True on success, or an error string on failure.
-    """
-    code_up = code.strip().upper()
-    # 1. Hardcoded admin codes (no email check needed)
-    if code_up in {c.upper() for c in VALID_PRO_CODES}:
-        return True
-    # 2. Dynamically generated codes — email-bound, activation-limited
-    if WEBHOOK_SERVER_URL:
-        try:
-            import requests as _req
-            resp = _req.get(
-                f"{WEBHOOK_SERVER_URL}/validate",
-                params={"code": code_up, "email": email.strip().lower()},
-                timeout=5
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("valid"):
-                    return True
-                reason = data.get("reason", "invalid_code")
-                if reason == "email_mismatch":
-                    return "email_mismatch"
-                if reason == "max_activations":
-                    return "max_activations"
-                return "invalid_code"
-        except Exception:
-            pass
-    return "invalid_code"
 
 # ── SIDEBAR: user avatar + pro status + sign out ──────────────────────────────────
 st.sidebar.divider()
@@ -438,28 +366,17 @@ if _USER_EMAIL:
           </div></div>""",
         unsafe_allow_html=True,
     )
-if not st.session_state.is_pro:
-    st.sidebar.markdown(
-        """<div style='background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);
-                    border-radius:10px;padding:12px 14px;text-align:center;margin-top:6px;'>
-            <div style='font-size:1rem;font-weight:800;color:#f59e0b;margin-bottom:4px;'>⚡ Upgrade to Pro</div>
-            <div style='font-size:0.73rem;color:#9ca3af;'>Unlock all AI features — ₹79 one-time</div>
-        </div>""",
-        unsafe_allow_html=True
-    )
-else:
-    st.sidebar.success("✅ Pro Active — All features unlocked!")
 if _USER_EMAIL:
     if st.sidebar.button("🚪 Sign Out", key="_signout_btn", use_container_width=True):
-        for _k in ["user_email", "user_name", "user_pic", "is_pro", "_pro_db_checked"]:
+        for _k in ["user_email", "user_name", "user_pic"]:
             st.session_state.pop(_k, None)
         st.rerun()
 
 
-# ── PAYWALL CSS ────────────────────────────────────────────────────────────────
+# ── BADGE CSS ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-.paywall-card {
+.badge-free {
     background: linear-gradient(135deg, #0f1520 0%, #160e2a 100%);
     border: 1px solid rgba(245,158,11,0.4);
     border-radius: 18px;
@@ -512,253 +429,6 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
-
-def pro_wall(feature_name, bullets):
-    """Render a locked paywall card for a Pro feature, with inline code-unlock."""
-    bullets_html = "".join(f"<li>{b}</li>" for b in bullets)
-    # Sanitise feature name for use as a unique widget key
-    _key = re.sub(r"[^a-z0-9]", "_", feature_name.lower())
-    _link_key        = f"_wall_link_{_key}"
-    _saved_email_key = f"_wall_saved_email_{_key}"  # separate from widget key
-
-    st.markdown(f"""
-    <div class="paywall-card">
-        <div class="paywall-lock">🔒</div>
-        <div class="paywall-title">{feature_name} — Pro Feature</div>
-        <ul class="paywall-bullets">{bullets_html}</ul>
-        <div class="paywall-note">⚡ One-time payment · ₹79 · No subscription · Instant email delivery</div>
-        <div class="unlock-strip">
-            <div class="unlock-strip-label">Step 1 · Enter your email to get a unique payment link →</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    _col_l, _col_mid, _col_r = st.columns([1, 3, 1])
-    with _col_mid:
-        # Define _code_key here so Step 3 can always reference it
-        _code_key = f"_found_code_{_key}"
-
-        # ── STEP 1: Generate a unique payment link ──────────────────────────
-        if _link_key not in st.session_state:
-            _em_col, _nm_col = st.columns(2)
-            with _em_col:
-                _email = st.text_input(
-                    "📧 Your Email",
-                    placeholder="you@gmail.com",
-                    key=f"_wall_email_{_key}",
-                    help="Your access code is emailed to you after payment."
-                )
-            with _nm_col:
-                _name = st.text_input(
-                    "👤 Your Name (optional)",
-                    placeholder="Rahul Sharma",
-                    key=f"_wall_name_{_key}",
-                )
-
-            if st.button("⚡ Get My Payment Link →", key=f"_wall_gen_{_key}", use_container_width=True):
-                _email_val = (_email or "").strip()
-                _name_val  = (_name  or "").strip()
-                if not _email_val:
-                    st.error("Please enter your email address to continue.")
-                elif not WEBHOOK_SERVER_URL:
-                    st.error("⚠️ Payment server is not configured. Please contact support.")
-                else:
-                    with st.spinner("⏳ Generating your personal payment link..."):
-                        try:
-                            import requests as _req
-                            _resp = _req.post(
-                                f"{WEBHOOK_SERVER_URL}/create-payment-link",
-                                json={"email": _email_val, "name": _name_val},
-                                timeout=30,
-                            )
-                            if _resp.status_code == 200:
-                                _got_link = _resp.json().get("url", "")
-                                if _got_link:
-                                    st.session_state[_link_key]        = _got_link
-                                    st.session_state[_saved_email_key] = _email_val
-                                    st.rerun()
-                                else:
-                                    st.error("❌ Could not generate a payment link. Please try again.")
-                            elif _resp.status_code == 502:
-                                try:
-                                    _detail = _resp.json().get("error", "Razorpay API rejected the request.")
-                                except Exception:
-                                    _detail = "Razorpay API rejected the request."
-                                st.error(f"❌ Razorpay API error: {_detail}")
-                                st.warning("🔧 **Fix**: Check that `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are correctly set in your Railway environment variables. Use **live mode** keys if this is production.")
-                            elif _resp.status_code == 500:
-                                st.error("❌ Payment server: Razorpay API keys are not configured on the server.")
-                                st.warning("🔧 **Fix**: Add `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` to your Railway environment variables.")
-                            else:
-                                st.error(f"❌ Server error ({_resp.status_code}). Please try again in a moment.")
-                        except Exception as _e:
-                            st.error("❌ Could not reach the payment server. Check your connection and try again.")
-
-        # ── STEP 2: Payment link + "I've Paid" polling ──────────────────────
-        else:
-            _pay_url     = st.session_state[_link_key]
-            _saved_email = st.session_state.get(_saved_email_key, "")
-
-            # ── Code already found → show popup ─────────────────────────
-            if st.session_state.get(_code_key):
-                _found_code = st.session_state[_code_key]
-                st.markdown(f"""
-<style>
-@keyframes rzqSlide {{
-    from {{ transform: translateX(110%); opacity:0; }}
-    to   {{ transform: translateX(0);   opacity:1; }}
-}}
-#rzq-popup {{
-    position:fixed; top:20px; right:20px; z-index:9999999;
-    background:linear-gradient(135deg,#0d1117,#1a0800);
-    border:2px solid #f59e0b; border-radius:18px;
-    padding:22px 26px; width:300px;
-    box-shadow:0 8px 40px rgba(245,158,11,0.5);
-    animation:rzqSlide 0.45s cubic-bezier(.22,1,.36,1);
-    font-family:'Segoe UI',system-ui,sans-serif;
-}}
-#rzq-lbl  {{ color:#f59e0b; font-weight:800; font-size:1rem; margin-bottom:4px; }}
-#rzq-sub  {{ color:#9ca3af; font-size:0.72rem; margin-bottom:12px; }}
-#rzq-code {{
-    font-size:1.3rem; font-weight:900; color:#fff; letter-spacing:3px;
-    background:#0a0a0a; border:2px solid #f59e0b; border-radius:10px;
-    padding:11px; text-align:center; font-family:monospace;
-    margin-bottom:10px; cursor:pointer; user-select:all;
-}}
-#rzq-btn  {{
-    width:100%; padding:9px; border:none; border-radius:10px;
-    background:linear-gradient(135deg,#f59e0b,#d97706);
-    color:#000; font-weight:800; cursor:pointer; font-size:0.88rem;
-    margin-bottom:8px;
-}}
-#rzq-foot {{ color:#6b7280; font-size:0.7rem; text-align:center; }}
-</style>
-<div id="rzq-popup">
-  <div id="rzq-lbl">🎉 Payment Confirmed!</div>
-  <div id="rzq-sub">Your unique Pro access code:</div>
-  <div id="rzq-code" title="Click to copy">{_found_code}</div>
-  <button id="rzq-btn" onclick="navigator.clipboard.writeText('{_found_code}');this.textContent='✅ Copied to clipboard!'">📋 Copy Code</button>
-  <div id="rzq-foot">Closes in <span id="rzq-t">30</span>s &nbsp;·&nbsp; code also shown below</div>
-</div>
-<script>
-(function(){{
-  var s=30,el=document.getElementById('rzq-t'),p=document.getElementById('rzq-popup');
-  var iv=setInterval(function(){{
-    s--;if(el)el.textContent=s;
-    if(s<=0){{clearInterval(iv);if(p)p.style.display='none';}}
-  }},1000);
-}})();
-</script>
-<div style="background:linear-gradient(135deg,#1a0800,#0d0d0d);border:2px solid #f59e0b;
-border-radius:14px;padding:18px 22px;text-align:center;margin:14px 0 4px;">
-  <div style="color:#9ca3af;font-size:0.75rem;margin-bottom:6px;letter-spacing:1px;">YOUR PRO ACCESS CODE</div>
-  <div style="font-size:1.7rem;font-weight:900;color:#f59e0b;letter-spacing:4px;font-family:monospace;">{_found_code}</div>
-  <div style="color:#6b7280;font-size:0.72rem;margin-top:6px;">↓ Paste in the field below and click Unlock Pro</div>
-</div>
-""", unsafe_allow_html=True)
-
-            # ── Show payment link + "I've Paid" button ───────────────────
-            else:
-                st.success("✅ Your personal payment link is ready!")
-                st.markdown(
-                    f'<a href="{_pay_url}" target="_blank" '
-                    f'style="display:block;text-align:center;'
-                    f'background:linear-gradient(135deg,#f59e0b,#d97706);'
-                    f'color:#000;font-weight:800;font-size:1rem;padding:14px 24px;'
-                    f'border-radius:30px;text-decoration:none;'
-                    f'box-shadow:0 6px 24px rgba(245,158,11,0.4);margin:12px 0;">'
-                    f'💳 Pay ₹79 — Open Payment Page →</a>',
-                    unsafe_allow_html=True,
-                )
-                st.info(f"⚠️ **Important:** When Razorpay asks for your email, enter **{_saved_email}** (same as above) so we can match your payment and show your code.")
-
-                # ── Prominent callout for users who already see "Payment Completed" ──
-                st.markdown("""
-<div style="margin-top:4px;margin-bottom:12px;padding:14px 18px;border-radius:12px;
-            background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.4);
-            border-left:4px solid #10b981;">
-  <div style="color:#10b981;font-weight:800;font-size:0.9rem;margin-bottom:4px;">
-    ✅ Razorpay showing &ldquo;Payment Completed&rdquo;?
-  </div>
-  <div style="color:#9ca3af;font-size:0.82rem;line-height:1.6;">
-    That means your payment went through! <strong style="color:#e2eaf8;">Do NOT click the pay button again.</strong><br>
-    Click <strong style="color:#10b981;">&ldquo;✅ I&rsquo;ve Paid — Show My Code!&rdquo;</strong> below to instantly retrieve your access code.
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    if st.button("✅ I've Paid — Show My Code!", key=f"_wall_paid_{_key}", use_container_width=True):
-                        _found = False
-                        if WEBHOOK_SERVER_URL:
-                            import time as _time
-                            import requests as _req
-                            with st.spinner("🔍 Verifying your payment... please wait"):
-                                for _attempt in range(3):  # retry up to 3× with 3s gap
-                                    try:
-                                        _r = _req.get(
-                                            f"{WEBHOOK_SERVER_URL}/get-code",
-                                            params={"email": _saved_email},
-                                            timeout=10,
-                                        )
-                                        if _r.status_code == 200 and _r.json().get("found"):
-                                            st.session_state[_code_key] = _r.json()["code"]
-                                            _found = True
-                                            break
-                                    except Exception:
-                                        pass
-                                    if not _found and _attempt < 2:
-                                        _time.sleep(3)
-                        if _found:
-                            st.rerun()
-                        else:
-                            st.warning("⏳ Payment not detected yet — wait ~15 seconds and try again. If you already paid, scroll down and manually enter any code you received by email.")
-                with col2:
-                    if st.button("🔄 Reset", key=f"_wall_regen_{_key}"):
-                        for _k in [_link_key, _code_key, _saved_email_key, f"_wall_code_{_key}"]:
-                            st.session_state.pop(_k, None)
-                        st.rerun()
-
-        # ── STEP 3: Enter access code ────────────────────────────────────────
-        st.divider()
-        st.markdown('<div class="unlock-strip-label">Step 2 (after paying) · Enter your access code</div>',
-                    unsafe_allow_html=True)
-        _prefill         = st.session_state.get(_code_key, "")
-        _code_widget_key = f"_wall_code_{_key}"
-        # ── Key fix: Streamlit ignores value= if the widget key already exists
-        #    in session_state. Set it explicitly so the found code is pre-filled.
-        if _prefill and not st.session_state.get(_code_widget_key, "").strip():
-            st.session_state[_code_widget_key] = _prefill
-        _code = st.text_input(
-            "🔑 Access Code",
-            placeholder="e.g. RIQ-A1B2-C3D4-E5F6",
-            key=_code_widget_key,
-            help="Code appears on screen after payment — or check your email."
-        )
-        col_unlock, col_startover = st.columns([3, 1])
-        with col_unlock:
-            if st.button("🔓 Unlock Pro", key=f"_wall_btn_{_key}", use_container_width=True):
-                _unlock_email = st.session_state.get(f"_wall_saved_email_{_key}", "")
-                _result = _validate_pro_code(_code, _unlock_email)
-                if _result is True:
-                    st.session_state.is_pro = True
-                    # Clean up paywall state after successful unlock
-                    for _k in [_link_key, _code_key, _saved_email_key, _code_widget_key]:
-                        st.session_state.pop(_k, None)
-                    st.rerun()
-                elif _result == "email_mismatch":
-                    st.error("❌ This code belongs to a different email address. Please use the email you paid with.")
-                elif _result == "max_activations":
-                    st.error("⚠️ This code has reached its activation limit. Contact support if you believe this is an error.")
-                else:
-                    st.error("❌ Invalid code. Double-check or contact support.")
-        with col_startover:
-            if st.button("🔄 Start Over", key=f"_wall_startover_{_key}"):
-                for _k in [_link_key, _code_key, _saved_email_key, _code_widget_key]:
-                    st.session_state.pop(_k, None)
-                st.rerun()
-
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -911,7 +581,7 @@ if page == "🎯 Career Tools":
     st.title("🎯 Career Tools")
     st.markdown('<p style="color:#8eb8f0;font-size:0.95rem;margin-bottom:1.5rem;">Cover letters &amp; tracking are free. Pro tools unlock interview prep and outreach.</p>', unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["✉️ Cover Letter  🆓", "📋 Application Tracker  🆓", "🎤 Interview Predictor  🔒", "📨 Cold Outreach  🔒"])
+    tab1, tab2, tab3, tab4 = st.tabs(["✉️ Cover Letter", "📋 Application Tracker", "🎤 Interview Predictor", "📨 Cold Outreach"])
 
     # ── TAB 1: Cover Letter Generator (FREE) ─────────────────────────────────
     with tab1:
@@ -1023,30 +693,21 @@ if page == "🎯 Career Tools":
                             st.rerun()
                     st.write("")
 
-    # ── TAB 3: Interview Predictor (🔒 PRO) ──────────────────────────────────
+    # ── TAB 3: Interview Predictor ───────────────────────────────────────────
     with tab3:
-        st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
         st.subheader("🎤 Interview Question Predictor")
-        if not st.session_state.is_pro:
-            pro_wall("Interview Predictor", [
-                "AI-generated behavioral, technical & role-specific questions",
-                "Personalized to your resume background",
-                "Company-specific questions when JD is provided",
-                "Practice-ready format with Q-by-Q breakdown",
-            ])
-        else:
-            st.write("Upload your resume to generate likely interview questions specific to your background and target role.")
-            iq_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"], key="iq_resume")
-            iq_jd = st.text_area("Job Description (optional — unlocks company & role-specific questions)", height=120, key="iq_jd")
-            if st.button("Generate Questions 🎤", key="iq_btn"):
-                if not iq_resume:
-                    st.error("Please upload your resume.")
-                else:
-                    with st.spinner("Analyzing your profile and predicting questions..."):
-                        iq_text = extract_text_from_pdf(iq_resume)
-                        from utils.interview_prep import predict_interview_questions
-                        st.session_state["iq_result"] = predict_interview_questions(iq_text, iq_jd)
-            if "iq_result" in st.session_state:
+        st.write("Upload your resume to generate likely interview questions specific to your background and target role.")
+        iq_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"], key="iq_resume")
+        iq_jd = st.text_area("Job Description (optional — unlocks company & role-specific questions)", height=120, key="iq_jd")
+        if st.button("Generate Questions 🎤", key="iq_btn"):
+            if not iq_resume:
+                st.error("Please upload your resume.")
+            else:
+                with st.spinner("Analyzing your profile and predicting questions..."):
+                    iq_text = extract_text_from_pdf(iq_resume)
+                    from utils.interview_prep import predict_interview_questions
+                    st.session_state["iq_result"] = predict_interview_questions(iq_text, iq_jd)
+        if "iq_result" in st.session_state:
                 res = st.session_state["iq_result"]
                 if "error" in res:
                     st.error(f"❌ {res['error']}")
@@ -1071,49 +732,40 @@ if page == "🎯 Career Tools":
                                 )
                             st.write("")
 
-    # ── TAB 4: Cold Outreach Writer (🔒 PRO) ─────────────────────────────────
+    # ── TAB 4: Cold Outreach Writer ───────────────────────────────────────────
     with tab4:
-        st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
         st.subheader("📨 Cold Outreach Writer")
-        if not st.session_state.is_pro:
-            pro_wall("Cold Email & LinkedIn Outreach Generator", [
-                "Personalized cold emails drafted from your resume",
-                "LinkedIn connection messages (≤80 words, high-reply rate)",
-                "Tailored for Recruiter, Alumni, Referral or Hiring Manager",
-                "Written to actually get responses — not generic templates",
-            ])
-        else:
-            st.write("Generate cold emails and LinkedIn messages personalized from your resume — written to actually get replies.")
-            co_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"], key="co_resume")
-            c1, c2, c3 = st.columns(3)
-            with c1: co_company = st.text_input("Target Company", key="co_company")
-            with c2: co_role    = st.text_input("Target Role",    key="co_role")
-            with c3: co_ptype   = st.selectbox("Writing to...", ["Recruiter", "Alumni", "Referral", "Hiring Manager"], key="co_ptype")
-            co_pname = st.text_input("Their Name (optional — makes it more personal)", key="co_pname")
-            if st.button("Generate Outreach 📨", key="co_btn"):
-                if not all([co_resume, co_company.strip(), co_role.strip()]):
-                    st.error("Please upload resume and fill in company + role.")
-                else:
-                    with st.spinner("Writing your outreach messages..."):
-                        co_text = extract_text_from_pdf(co_resume)
-                        from utils.cold_outreach import generate_outreach
-                        st.session_state["co_result"] = generate_outreach(co_text, co_company, co_role, co_ptype, co_pname)
-            if "co_result" in st.session_state:
-                res = st.session_state["co_result"]
-                if "error" in res:
-                    st.error(f"❌ {res['error']}")
-                else:
-                    st.divider()
-                    st.success("✅ Outreach messages ready!")
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        st.markdown('<div class="ct-label">📧 Cold Email</div>', unsafe_allow_html=True)
-                        st.markdown(f'<div class="ct-subject">Subject: <b>{res.get("email_subject","")}</b></div>', unsafe_allow_html=True)
-                        st.text_area("Email body — select all to copy", value=res.get("email_body",""), height=220, key="co_email_display")
-                    with col_b:
-                        st.markdown('<div class="ct-label">🔗 LinkedIn Message</div>', unsafe_allow_html=True)
-                        st.markdown('<div class="ct-subject">Connection request note (≤80 words)</div>', unsafe_allow_html=True)
-                        st.text_area("LinkedIn message — select all to copy", value=res.get("linkedin_message",""), height=220, key="co_li_display")
+        st.write("Generate cold emails and LinkedIn messages personalized from your resume — written to actually get replies.")
+        co_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"], key="co_resume")
+        c1, c2, c3 = st.columns(3)
+        with c1: co_company = st.text_input("Target Company", key="co_company")
+        with c2: co_role    = st.text_input("Target Role",    key="co_role")
+        with c3: co_ptype   = st.selectbox("Writing to...", ["Recruiter", "Alumni", "Referral", "Hiring Manager"], key="co_ptype")
+        co_pname = st.text_input("Their Name (optional — makes it more personal)", key="co_pname")
+        if st.button("Generate Outreach 📨", key="co_btn"):
+            if not all([co_resume, co_company.strip(), co_role.strip()]):
+                st.error("Please upload resume and fill in company + role.")
+            else:
+                with st.spinner("Writing your outreach messages..."):
+                    co_text = extract_text_from_pdf(co_resume)
+                    from utils.cold_outreach import generate_outreach
+                    st.session_state["co_result"] = generate_outreach(co_text, co_company, co_role, co_ptype, co_pname)
+        if "co_result" in st.session_state:
+            res = st.session_state["co_result"]
+            if "error" in res:
+                st.error(f"❌ {res['error']}")
+            else:
+                st.divider()
+                st.success("✅ Outreach messages ready!")
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    st.markdown('<div class="ct-label">📧 Cold Email</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="ct-subject">Subject: <b>{res.get("email_subject","")}</b></div>', unsafe_allow_html=True)
+                    st.text_area("Email body — select all to copy", value=res.get("email_body",""), height=220, key="co_email_display")
+                with col_b:
+                    st.markdown('<div class="ct-label">🔗 LinkedIn Message</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="ct-subject">Connection request note (≤80 words)</div>', unsafe_allow_html=True)
+                    st.text_area("LinkedIn message — select all to copy", value=res.get("linkedin_message",""), height=220, key="co_li_display")
 
     st.stop()
 
@@ -1122,161 +774,143 @@ if page == "🎯 Career Tools":
 if page == "⚖️ A/B Testing Engine":
 
     st.title("⚖️ Resume A/B Testing Engine")
-    st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
     st.write("Mathematically compare two resume versions against a job description — data-driven winner selection.")
 
-    if not st.session_state.is_pro:
-        pro_wall("A/B Testing Engine", [
-            "Upload Resume A vs Resume B — AI picks the winner",
-            "Full ATS format score + semantic JD alignment comparison",
-            "Expert LLM verdict with key difference breakdown",
-            "Recruiter-perspective summary on which resume to submit",
-        ])
-    else:
-        col1, col2 = st.columns(2)
-        with col1:
-            res_a_file = st.file_uploader("Upload Resume A (PDF)", type=["pdf"], key="res_a")
-        with col2:
-            res_b_file = st.file_uploader("Upload Resume B (PDF)", type=["pdf"], key="res_b")
-
-        jd_ab = st.text_area("Paste Target Job Description", key="jd_ab", height=150)
-
-        if st.button("Compare Resumes ⚖️"):
-            if not res_a_file or not res_b_file or not jd_ab:
-                st.error("Please upload both resumes and provide a job description.")
-            else:
-                with st.spinner("Analyzing structures and querying LLM for Recruiter Feedback..."):
-                    text_a = extract_text_from_pdf(res_a_file)
-                    text_b = extract_text_from_pdf(res_b_file)
-                    score_a, ats_data_a = real_ats_score(text_a)
-                    score_b, ats_data_b = real_ats_score(text_b)
-                    from utils.jd_file import model, split_text, cosine_similarity
-                    import numpy as np
-
-                    def get_jd_score(res_txt, jd_txt):
-                        r_chunks = split_text(res_txt)
-                        j_chunks = split_text(jd_txt)
-                        if not r_chunks or not j_chunks:
-                            return 0
-                        r_emb = model.encode(r_chunks)
-                        j_emb = model.encode(j_chunks)
-                        sim = cosine_similarity(np.mean(r_emb, axis=0), np.mean(j_emb, axis=0))
-                        return min(max(0, float(sim) * 100), 100)
-
-                    jd_a = get_jd_score(text_a, jd_ab)
-                    jd_b = get_jd_score(text_b, jd_ab)
-                    overall_a = (score_a * 0.4) + (jd_a * 0.6)
-                    overall_b = (score_b * 0.4) + (jd_b * 0.6)
-
-                    st.divider()
-                    st.subheader("🔢 Quantitative Comparison")
-                    colA, colB = st.columns(2)
-                    with colA:
-                        st.write("### Resume A")
-                        st.metric("Overall ATS Match", f"{overall_a:.1f}/100")
-                        st.caption(f"Format Score: {score_a}/100 | Semantic Alignment: {jd_a:.1f}%")
-                    with colB:
-                        st.write("### Resume B")
-                        st.metric("Overall ATS Match", f"{overall_b:.1f}/100")
-                        st.caption(f"Format Score: {score_b}/100 | Semantic Alignment: {jd_b:.1f}%")
-
-                    st.divider()
-                    st.subheader("🤖 Expert LLM Verdict")
-                    from utils.ab_testing import compare_resumes_llm
-                    feedback = compare_resumes_llm(text_a, text_b, jd_ab)
-                    if "error" in feedback:
-                        st.error(f"Error calling AI Evaluator: {feedback['error']}")
-                    else:
-                        winner = feedback.get("winner", "Unknown")
-                        if winner in ("Resume A", "Resume B"):
-                            st.success(f"🏆 Ultimate Winner: **{winner}**")
-                        else:
-                            st.warning(f"🤝 Result: **{winner}**")
-                        st.write("### Key Comparative Advantages:")
-                        for diff in feedback.get("key_differences", []):
-                            st.write(f"- {diff}")
-                        st.write("### Recruiter Summary View:")
-                        st.info(feedback.get("final_verdict", ""))
-
-    st.stop()
-
-st.title("Single Resume Analyzer")
-st.write("Real ATS Scoring + Smart Resume Feedback")
-
-# ---------------- PROFILE ----------------
-profiles = list(SKILLS_DB.keys())
-selected_profile = st.selectbox("Select Target Role", profiles)
-
-# ---------------- FILE UPLOAD ----------------
-uploaded_file = st.file_uploader("Upload Resume (PDF only)", type=["pdf"])
-
-# ---------------- MAIN ----------------
-if uploaded_file:
-
-    resume_text = extract_text_from_pdf(uploaded_file)
-
-    if not resume_text.strip():
-        st.error("❌ Could not extract text")
-        st.stop()
-
-    # -------- BASIC INFO --------
-    name, roll_number, college = extract_basic_info(resume_text)
-
-    st.subheader("Candidate Details")
-
-    col1, col2, col3 = st.columns(3)
-    col1.write(f"**Name:** {name}")
-    col2.write(f"**Roll No:** {roll_number}")
-    col3.write(f"**College:** {college}")
-
-    st.divider()
-
-    # -------- SKILLS — FREE --------
-    present, missing, exact = extract_skills(resume_text, selected_profile, SKILLS_DB)
-
-    st.markdown('<span class="badge-free">Free</span>', unsafe_allow_html=True)
-    st.subheader("🧩 Skills Analysis")
-
     col1, col2 = st.columns(2)
-
     with col1:
-        st.write("✅ Skills Found")
-        st.write(", ".join(exact) if exact else "None")
-
+        res_a_file = st.file_uploader("Upload Resume A (PDF)", type=["pdf"], key="res_a")
     with col2:
-        st.write("❌ Missing Skills")
-        st.write(", ".join(missing) if missing else "None")
+        res_b_file = st.file_uploader("Upload Resume B (PDF)", type=["pdf"], key="res_b")
 
-    st.divider()
+    jd_ab = st.text_area("Paste Target Job Description", key="jd_ab", height=150)
 
-    # -------- REAL ATS — FREE --------
-    st.markdown('<span class="badge-free">Free</span>', unsafe_allow_html=True)
-    st.subheader("🤖 ATS Score")
+    if st.button("Compare Resumes ⚖️"):
+        if not res_a_file or not res_b_file or not jd_ab:
+            st.error("Please upload both resumes and provide a job description.")
+        else:
+            with st.spinner("Analyzing structures and querying LLM for Recruiter Feedback..."):
+                text_a = extract_text_from_pdf(res_a_file)
+                text_b = extract_text_from_pdf(res_b_file)
+                score_a, ats_data_a = real_ats_score(text_a)
+                score_b, ats_data_b = real_ats_score(text_b)
+                from utils.jd_file import model, split_text, cosine_similarity
+                import numpy as np
 
-    score, ats_data = real_ats_score(resume_text)
+                def get_jd_score(res_txt, jd_txt):
+                    r_chunks = split_text(res_txt)
+                    j_chunks = split_text(jd_txt)
+                    if not r_chunks or not j_chunks:
+                        return 0
+                    r_emb = model.encode(r_chunks)
+                    j_emb = model.encode(j_chunks)
+                    sim = cosine_similarity(np.mean(r_emb, axis=0), np.mean(j_emb, axis=0))
+                    return min(max(0, float(sim) * 100), 100)
 
-    st.metric("Overall ATS Parseability", f"{score}/100")
+                jd_a = get_jd_score(text_a, jd_ab)
+                jd_b = get_jd_score(text_b, jd_ab)
+                overall_a = (score_a * 0.4) + (jd_a * 0.6)
+                overall_b = (score_b * 0.4) + (jd_b * 0.6)
 
-    if score > 80:
-        st.success("🔥 Excellent Formatting")
-    elif score > 60:
-        st.warning("⚡ Good Formatting")
-    else:
-        st.error("🚨 Needs Formatting Improvement")
+                st.divider()
+                st.subheader("🔢 Quantitative Comparison")
+                colA, colB = st.columns(2)
+                with colA:
+                    st.write("### Resume A")
+                    st.metric("Overall ATS Match", f"{overall_a:.1f}/100")
+                    st.caption(f"Format Score: {score_a}/100 | Semantic Alignment: {jd_a:.1f}%")
+                with colB:
+                    st.write("### Resume B")
+                    st.metric("Overall ATS Match", f"{overall_b:.1f}/100")
+                    st.caption(f"Format Score: {score_b}/100 | Semantic Alignment: {jd_b:.1f}%")
 
-    st.divider()
+                st.divider()
+                st.subheader("🤖 Expert LLM Verdict")
+                from utils.ab_testing import compare_resumes_llm
+                feedback = compare_resumes_llm(text_a, text_b, jd_ab)
+                if "error" in feedback:
+                    st.error(f"Error calling AI Evaluator: {feedback['error']}")
+                else:
+                    winner = feedback.get("winner", "Unknown")
+                    if winner in ("Resume A", "Resume B"):
+                        st.success(f"🏆 Ultimate Winner: **{winner}**")
+                    else:
+                        st.warning(f"🤝 Result: **{winner}**")
+                    st.write("### Key Comparative Advantages:")
+                    for diff in feedback.get("key_differences", []):
+                        st.write(f"- {diff}")
+                    st.write("### Recruiter Summary View:")
+                    st.info(feedback.get("final_verdict", ""))
 
-    # -------- PLACEMENT PROBABILITY — 🔒 PRO --------
-    st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
-    st.subheader("🎯 Placement Probability Engine")
-    if not st.session_state.is_pro:
-        pro_wall("Placement Probability Predictor", [
-            "Predicts your % chance of getting shortlisted",
-            "Recruiter-grade benchmark modeling (vs 1000s of applicants)",
-            "Applicant Tier rating (Top 10%, Average, Below Average)",
-            "Market Benchmark progress bar with insight",
-        ])
-    else:
+st.stop()
+
+if page == "📊 Single Analyzer":
+    st.title("Single Resume Analyzer")
+    st.write("Real ATS Scoring + Smart Resume Feedback")
+
+    # ---------------- PROFILE ----------------
+    profiles = list(SKILLS_DB.keys())
+    selected_profile = st.selectbox("Select Target Role", profiles)
+
+    # ---------------- FILE UPLOAD ----------------
+    uploaded_file = st.file_uploader("Upload Resume (PDF only)", type=["pdf"])
+
+    # ---------------- MAIN ----------------
+    if uploaded_file:
+        resume_text = extract_text_from_pdf(uploaded_file)
+
+        if not resume_text.strip():
+            st.error("❌ Could not extract text")
+            st.stop()
+
+        # -------- BASIC INFO --------
+        name, roll_number, college = extract_basic_info(resume_text)
+
+        st.subheader("Candidate Details")
+
+        col1, col2, col3 = st.columns(3)
+        col1.write(f"**Name:** {name}")
+        col2.write(f"**Roll No:** {roll_number}")
+        col3.write(f"**College:** {college}")
+
+        st.divider()
+
+        # -------- SKILLS — FREE --------
+        present, missing, exact = extract_skills(resume_text, selected_profile, SKILLS_DB)
+
+        st.markdown('<span class="badge-free">Free</span>', unsafe_allow_html=True)
+        st.subheader("🧩 Skills Analysis")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.write("✅ Skills Found")
+            st.write(", ".join(exact) if exact else "None")
+
+        with col2:
+            st.write("❌ Missing Skills")
+            st.write(", ".join(missing) if missing else "None")
+
+        st.divider()
+
+        # -------- REAL ATS — FREE --------
+        st.markdown('<span class="badge-free">Free</span>', unsafe_allow_html=True)
+        st.subheader("🤖 ATS Score")
+
+        score, ats_data = real_ats_score(resume_text)
+
+        st.metric("Overall ATS Parseability", f"{score}/100")
+
+        if score > 80:
+            st.success("🔥 Excellent Formatting")
+        elif score > 60:
+            st.warning("⚡ Good Formatting")
+        else:
+            st.error("🚨 Needs Formatting Improvement")
+
+        st.divider()
+
+        # -------- PLACEMENT PROBABILITY — 🔒 PRO --------
+        st.subheader("🎯 Placement Probability Engine")
         from utils.placement import calculate_placement_probability
         skill_match_percentage = (len(exact) / max(1, len(exact) + len(missing))) * 100
         impact_res = impact_score(resume_text)
@@ -1293,19 +927,10 @@ if uploaded_file:
         st.progress(int(p_val))
         st.caption(f"**Your Score:** {p_val}% | **Average Applicant:** ~45% | **Top 10% Cutoff:** ~85%")
 
-    st.divider()
+        st.divider()
 
-    # -------- SMART SUGGESTIONS — 🔒 PRO --------
-    st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
-    st.subheader("💡 Smart Suggestions (Resume Worded AI)")
-    if not st.session_state.is_pro:
-        pro_wall("AI-Powered Resume Suggestions", [
-            "Line-by-line feedback on every bullet point",
-            "Confidence-scored issue detection",
-            "Side-by-side original vs improved suggestions",
-            "Personalized to your target role",
-        ])
-    else:
+        # -------- SMART SUGGESTIONS — 🔒 PRO --------
+        st.subheader("💡 Smart Suggestions (Resume Worded AI)")
         with st.spinner("Analyzing resume for targeted improvements..."):
             from utils.smart_suggestions import get_line_level_suggestions
             suggestions_list = get_line_level_suggestions(resume_text)
@@ -1322,19 +947,10 @@ if uploaded_file:
         else:
             st.info("No major line-level issues found! Your resume bullets look strong.")
 
-    st.divider()
+        st.divider()
 
-    # -------- AI RESUME REWRITER — 🔒 PRO --------
-    st.markdown('<span class="badge-pro">Pro</span>', unsafe_allow_html=True)
-    st.subheader("✨ AI Resume Rewriter")
-    if not st.session_state.is_pro:
-        pro_wall("AI Resume Rewriter", [
-            "Select any bullet from your resume to instantly upgrade",
-            "Basic Polish or Aggressive Transformation modes",
-            "Before vs After comparison with ATS-optimized output",
-            "AI feedback explaining every rewrite decision",
-        ])
-    else:
+        # -------- AI RESUME REWRITER — 🔒 PRO --------
+        st.subheader("✨ AI Resume Rewriter")
         with st.spinner("Intelligently scanning resume for lines to improve..."):
             from utils.bullet_extractor import extract_bullets_from_resume
             valid_bullets_raw = extract_bullets_from_resume(resume_text)
@@ -1365,21 +981,21 @@ if uploaded_file:
                         st.write("💡 **AI Feedback:**")
                         st.info(result.get("feedback_reason", "No feedback provided by model."))
 
-    st.divider()
+        st.divider()
 
-    # -------- JOB MATCH — FREE --------
-    st.markdown('<span class="badge-free">Free</span>', unsafe_allow_html=True)
-    st.subheader("📄 Job Match")
+        # -------- JOB MATCH — FREE --------
+        st.markdown('<span class="badge-free">Free</span>', unsafe_allow_html=True)
+        st.subheader("📄 Job Match")
 
-    jd = st.text_area("Paste Job Description")
+        jd = st.text_area("Paste Job Description")
 
-    if jd:
-        final_score, semantic_score, skill_score = jd_match_final(
-            resume_text, jd, present, missing
-        )
+        if jd:
+            final_score, semantic_score, skill_score = jd_match_final(
+                resume_text, jd, present, missing
+            )
 
-        st.metric("🎯 Match Score", f"{final_score:.2f}/100")
+            st.metric("🎯 Match Score", f"{final_score:.2f}/100")
 
-        st.write(f"🤖 Semantic Match: {semantic_score:.2f}%")
-        st.write(f"🧠 Skill Match: {skill_score:.2f}%")
+            st.write(f"🤖 Semantic Match: {semantic_score:.2f}%")
+            st.write(f"🧠 Skill Match: {skill_score:.2f}%")
 
