@@ -766,7 +766,6 @@ if page == "🎯 Career Tools":
                     st.markdown('<div class="ct-label">🔗 LinkedIn Message</div>', unsafe_allow_html=True)
                     st.markdown('<div class="ct-subject">Connection request note (≤80 words)</div>', unsafe_allow_html=True)
                     st.text_area("LinkedIn message — select all to copy", value=res.get("linkedin_message",""), height=220, key="co_li_display")
-
     st.stop()
 
 
@@ -840,8 +839,7 @@ if page == "⚖️ A/B Testing Engine":
                         st.write(f"- {diff}")
                     st.write("### Recruiter Summary View:")
                     st.info(feedback.get("final_verdict", ""))
-
-st.stop()
+    st.stop()
 
 if page == "📊 Single Analyzer":
     st.title("Single Resume Analyzer")
