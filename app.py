@@ -32,7 +32,7 @@ st.set_page_config(page_title="ResumeIQ Platform", layout="wide", page_icon="ðŸ§
 try:
     _GOOGLE_CLIENT_ID     = st.secrets.get("GOOGLE_CLIENT_ID", "")
     _GOOGLE_CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
-    _APP_URL              = st.secrets.get("APP_URL", "https://resumeanalyzer-por4fo6y72mngisghf3rsb.streamlit.app/")
+    _APP_URL              = st.secrets.get("APP_URL", "https://resumeiq-a3qrgwduuavjp79pqbsbvb.streamlit.app/")
 except Exception:
     _GOOGLE_CLIENT_ID = _GOOGLE_CLIENT_SECRET = _APP_URL = ""
 
