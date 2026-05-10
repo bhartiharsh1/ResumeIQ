@@ -341,6 +341,13 @@ if _OAUTH_READY and "user_email" not in st.session_state:
 _USER_EMAIL = st.session_state.get("user_email", "")
 _USER_NAME  = st.session_state.get("user_name",  "Guest")
 
+# Auto-restore Premium Session
+if _USER_EMAIL:
+    from utils.access_codes import has_premium_access
+    st.session_state.is_pro = has_premium_access(_USER_EMAIL)
+else:
+    st.session_state.is_pro = False
+
 def check_premium_access(action_name):
     """
     Checks if the user has an active, unexpired premium access code.
@@ -432,8 +439,6 @@ if _USER_EMAIL:
 
 
 # ── FREEMIUM STATE ────────────────────────────────────────────────────────────
-if "is_pro" not in st.session_state:
-    st.session_state.is_pro = False
 if "cover_letters_used" not in st.session_state:
     st.session_state.cover_letters_used = 0
 if "job_matches_used" not in st.session_state:
