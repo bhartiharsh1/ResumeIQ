@@ -20,6 +20,7 @@ CRITICAL RULES:
 4. Each suggestion MUST exactly quote a specific `original_line` from the resume text. Do not invent lines.
 5. Provide a realistic `improved_suggestion` that uses strong action verbs and incorporates plausible metrics/results.
 6. Include a numeric `confidence_score` between 0 and 100 (only include >= 80).
+7. Ensure all text values are strictly JSON-safe. Double-escape any literal backslashes.
 
 Output format must be a JSON array of objects exactly like this:
 [
@@ -44,9 +45,21 @@ def _parse_json(text: str):
     start = text.find('[')
     end   = text.rfind(']')
     if start != -1 and end != -1:
-        parsed = json.loads(text[start:end + 1])
-        if isinstance(parsed, list):
-            return parsed
+        json_str = text[start:end + 1]
+        try:
+            parsed = json.loads(json_str, strict=False)
+            if isinstance(parsed, list):
+                return parsed
+        except json.JSONDecodeError:
+            import re
+            # Fix invalid escapes (e.g. \s, \C) that LLMs sometimes generate
+            json_str = re.sub(r'\\([^"\\/bfnrtu])', r'\\\\\1', json_str)
+            try:
+                parsed = json.loads(json_str, strict=False)
+                if isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
     return []
 
 
