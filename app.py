@@ -341,18 +341,18 @@ if _OAUTH_READY and "user_email" not in st.session_state:
 _USER_EMAIL = st.session_state.get("user_email", "")
 _USER_NAME  = st.session_state.get("user_name",  "Guest")
 
-def execute_premium_action(action_name):
+def check_premium_access(action_name):
     """
-    Checks if the user has usages left. If so, deducts one and returns True.
+    Checks if the user has an active, unexpired premium access code.
     If not, removes pro status, shows error, and returns False.
     """
-    from utils.access_codes import use_premium_action
+    from utils.access_codes import has_premium_access
     
-    if use_premium_action(_USER_EMAIL):
+    if has_premium_access(_USER_EMAIL):
         return True
         
     st.session_state.is_pro = False
-    st.error(f"❌ Your premium access has expired (reached maximum of 3 usages). Please purchase a new access code to continue using {action_name}.")
+    st.error(f"❌ Your 6-hour premium access has expired. Please purchase a new access code to continue using {action_name}.")
     return False
 
 st.sidebar.title("🧭 Navigation")
@@ -383,9 +383,44 @@ if _USER_EMAIL:
     )
 if _USER_EMAIL:
     if st.sidebar.button("🚪 Sign Out", key="_signout_btn", use_container_width=True):
-        for _k in ["user_email", "user_name", "user_pic"]:
+        for _k in ["user_email", "user_name", "user_pic", "is_pro"]:
             st.session_state.pop(_k, None)
         st.rerun()
+
+    if st.session_state.get("is_pro", False):
+        from utils.access_codes import get_premium_expiry
+        expiry_ts = get_premium_expiry(_USER_EMAIL)
+        import time
+        if expiry_ts > time.time():
+            st.sidebar.markdown(f'''
+            <div style="background:linear-gradient(135deg, #10b981, #059669); border-radius:12px; padding:15px; margin-top:20px; text-align:center; box-shadow: 0 4px 15px rgba(16,185,129,0.2);">
+                <div style="color:white; font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">Premium Active</div>
+                <div id="countdown-timer" style="color:white; font-size:1.8rem; font-weight:800; font-family:monospace;">--:--:--</div>
+                <div style="color:rgba(255,255,255,0.8); font-size:0.75rem; margin-top:5px;">Unlimited Access</div>
+            </div>
+            <script>
+                // Update the countdown every 1 second
+                var countDownDate = {expiry_ts} * 1000;
+                var x = setInterval(function() {{
+                    var now = new Date().getTime();
+                    var distance = countDownDate - now;
+                    if (distance < 0) {{
+                        clearInterval(x);
+                        var el = window.parent.document.getElementById("countdown-timer");
+                        if(el) el.innerHTML = "EXPIRED";
+                    }} else {{
+                        var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                        var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                        var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                        var el = window.parent.document.getElementById("countdown-timer");
+                        if(el) el.innerHTML = (hours < 10 ? "0" + hours : hours) + ":" + (minutes < 10 ? "0" + minutes : minutes) + ":" + (seconds < 10 ? "0" + seconds : seconds);
+                    }}
+                }}, 1000);
+            </script>
+            ''', unsafe_allow_html=True)
+        else:
+            st.session_state.is_pro = False
+            st.rerun()
 
 
 
@@ -410,7 +445,8 @@ def pro_wall(feature_name, bullets):
         </ul>
         <hr style="border:none;height:1px;background:rgba(255,255,255,0.1);margin:20px 0;"/>
         <h3 style="color:#10b981;margin-bottom:8px;font-weight:700;">🚀 Upgrade to Pro (₹79)</h3>
-        <p style="color:#9ca3af;font-size:14px;margin-bottom:16px;">Scan & pay via Google Pay, PhonePe or any UPI app, then upload the screenshot below.</p>
+        <p style="color:#e2eaf8;font-size:15px;margin-bottom:8px;font-weight:600;">Unlock full premium access for 6 hours.</p>
+        <p style="color:#9ca3af;font-size:14px;margin-bottom:16px;">After payment, you can use all premium features without restrictions during your active session.<br/>A live countdown timer will show your remaining access time in real time.<br/>Once the timer ends, premium access will expire automatically.</p>
         <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi%3A%2F%2Fpay%3Fpa%3Dbhartiharsh64-1%40oksbi%26pn%3DHarsh%2520Bharti%26cu%3DINR" style="border-radius:12px;border:3px solid #f59e0b;margin-bottom:12px;" alt="UPI QR"/>
         <p style="color:#e2eaf8;margin:4px 0;">UPI ID: <b>bhartiharsh64-1@oksbi</b></p>
         <p style="color:#9ca3af;font-size:14px;margin-bottom:20px;">Once paid, our AI will verify your payment instantly and provide your Access Code.</p>
@@ -447,7 +483,7 @@ def pro_wall(feature_name, bullets):
                         <div style="background:linear-gradient(135deg, #10b981, #059669); border-radius:12px; padding:20px; text-align:center; margin: 20px 0; box-shadow: 0 4px 15px rgba(16,185,129,0.3);">
                             <h3 style="color:white; margin:0; font-size:1.2rem;">Your Unique Access Code:</h3>
                             <div style="font-size:2rem; font-weight:800; color:#fff; letter-spacing:2px; margin-top:10px; user-select:all;">{new_code}</div>
-                            <p style="color:rgba(255,255,255,0.8); margin:10px 0 0 0; font-size:0.9rem;">Copy this code and paste it below to unlock 3 Premium Actions.</p>
+                            <p style="color:rgba(255,255,255,0.8); margin:10px 0 0 0; font-size:0.9rem;">Copy this code and paste it below to unlock your 6-hour unlimited pass.</p>
                         </div>
                         ''', unsafe_allow_html=True)
                 else:
@@ -467,7 +503,7 @@ def pro_wall(feature_name, bullets):
                 st.session_state.is_pro = True
                 st.rerun()
             else:
-                st.error("❌ Invalid Code! It may belong to another account or usage limit reached.")
+                st.error("❌ Invalid Code! It may belong to another account or has expired.")
     return True
 
 
@@ -704,7 +740,7 @@ if page == "🎯 Career Tools":
                         if pro_wall("Unlimited Cover Letters", ["You have used your 2 free cover letters for this session.", "Upgrade to Pro to generate unlimited personalized cover letters."]):
                             proceed = False
                     else:
-                        proceed = execute_premium_action("Unlimited Cover Letters")
+                        proceed = check_premium_access("Unlimited Cover Letters")
                         
                 if proceed:
                     with st.spinner("Crafting your personalized cover letter..."):
@@ -816,7 +852,7 @@ if page == "🎯 Career Tools":
             if not iq_resume:
                 st.error("Please upload your resume.")
             else:
-                if execute_premium_action("Interview Predictor"):
+                if check_premium_access("Interview Predictor"):
                     with st.spinner("Analyzing your profile and predicting questions..."):
                         iq_text = extract_text_from_pdf(iq_resume)
                         from utils.interview_prep import predict_interview_questions
@@ -864,7 +900,7 @@ if page == "🎯 Career Tools":
                 if not all([co_resume, co_company.strip(), co_role.strip()]):
                     st.error("Please upload resume and fill in company + role.")
                 else:
-                    if execute_premium_action("Cold Outreach Writer"):
+                    if check_premium_access("Cold Outreach Writer"):
                         with st.spinner("Writing your outreach messages..."):
                             co_text = extract_text_from_pdf(co_resume)
                             from utils.cold_outreach import generate_outreach
@@ -910,7 +946,7 @@ if page == "⚖️ A/B Testing Engine":
         if not res_a_file or not res_b_file or not jd_ab:
             st.error("Please upload both resumes and provide a job description.")
         else:
-            if execute_premium_action("A/B Testing Engine"):
+            if check_premium_access("A/B Testing Engine"):
                 with st.spinner("Analyzing structures and querying LLM for Recruiter Feedback..."):
                     text_a = extract_text_from_pdf(res_a_file)
                     text_b = extract_text_from_pdf(res_b_file)
@@ -1104,7 +1140,7 @@ if page == "📊 Single Analyzer":
             if bullet_to_rewrite:
                 strength = st.radio("Rewrite Strength", ["Basic Polish", "Aggressive Transformation"], horizontal=True)
                 if st.button("Rewrite Bullet 🚀"):
-                    if execute_premium_action("AI Resume Rewriter"):
+                    if check_premium_access("AI Resume Rewriter"):
                         with st.spinner("Analyzing and rewriting..."):
                             from utils.llm_rewriter import rewrite_bullet
                             result = rewrite_bullet(bullet_to_rewrite, selected_profile, strength)
@@ -1138,7 +1174,7 @@ if page == "📊 Single Analyzer":
                         if pro_wall("Unlimited Job Matches", ["You have used your 1 free job match for this session.", "Upgrade to Pro to test your resume against unlimited job descriptions."]):
                             proceed = False
                     else:
-                        proceed = execute_premium_action("Unlimited Job Matches")
+                        proceed = check_premium_access("Unlimited Job Matches")
                         
                 if proceed:
                     if not st.session_state.is_pro:

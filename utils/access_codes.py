@@ -38,13 +38,14 @@ def mark_transaction_used(tx_id):
         used.append(tx_id)
         _save_json(USED_TX_FILE, used)
 
+import time
+
 def generate_unique_code(email):
     code = "PRO-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
     codes = _load_json(CODES_FILE, {})
     codes[code] = {
         "email": email,
-        "usages": 0,
-        "max_usages": 3,
+        "expires_at": time.time() + (6 * 3600), # 6 hours from now
         "active": True
     }
     _save_json(CODES_FILE, codes)
@@ -66,33 +67,35 @@ def validate_code(code, email):
     if c_data.get("email") != email:
         return False
         
-    if c_data.get("usages", 0) >= c_data.get("max_usages", 3):
+    if time.time() > c_data.get("expires_at", 0):
+        c_data["active"] = False
+        _save_json(CODES_FILE, codes)
         return False
         
     return True
 
-def use_premium_action(email):
-    """Call this when a user performs a premium action. Returns True if allowed."""
+def has_premium_access(email):
+    """Check if the user has an active, unexpired premium code."""
     codes = _load_json(CODES_FILE, {})
-    active_code = None
-    for code, data in codes.items():
-        if data.get("email") == email and data.get("active", False):
-            if data.get("usages", 0) < data.get("max_usages", 3):
-                active_code = code
-                break
-                
-    if active_code:
-        codes[active_code]["usages"] += 1
-        if codes[active_code]["usages"] >= codes[active_code]["max_usages"]:
-            codes[active_code]["active"] = False # Expire it
-        _save_json(CODES_FILE, codes)
-        return True
+    has_access = False
     
-    return False
-
-def get_remaining_usages(email):
-    codes = _load_json(CODES_FILE, {})
     for code, data in codes.items():
         if data.get("email") == email and data.get("active", False):
-            return data.get("max_usages", 3) - data.get("usages", 0)
-    return 0
+            if time.time() < data.get("expires_at", 0):
+                has_access = True
+            else:
+                data["active"] = False # Expire it
+                
+    _save_json(CODES_FILE, codes)
+    return has_access
+
+def get_premium_expiry(email):
+    """Returns the expiration timestamp for the user's active premium, or 0 if none."""
+    codes = _load_json(CODES_FILE, {})
+    best_expiry = 0
+    for code, data in codes.items():
+        if data.get("email") == email and data.get("active", False):
+            expiry = data.get("expires_at", 0)
+            if expiry > time.time() and expiry > best_expiry:
+                best_expiry = expiry
+    return best_expiry
