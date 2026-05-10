@@ -78,6 +78,7 @@ def has_premium_access(email):
     """Check if the user has an active, unexpired premium code."""
     codes = _load_json(CODES_FILE, {})
     has_access = False
+    needs_save = False
     
     for code, data in codes.items():
         if data.get("email") == email and data.get("active", False):
@@ -85,8 +86,11 @@ def has_premium_access(email):
                 has_access = True
             else:
                 data["active"] = False # Expire it
+                needs_save = True
                 
-    _save_json(CODES_FILE, codes)
+    if needs_save:
+        _save_json(CODES_FILE, codes)
+        
     return has_access
 
 def get_premium_expiry(email):
