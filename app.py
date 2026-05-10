@@ -460,32 +460,31 @@ def pro_wall(feature_name, bullets):
     bullets_html = "".join([f"<li>{b}</li>" for b in bullets])
     _key = feature_name.lower().replace(" ", "_").replace("/", "")
     st.markdown(f'''
-    <style>
-        @keyframes rotateGradient {{
-            0% {{ background-position: 0% 50%; }}
-            50% {{ background-position: 100% 50%; }}
-            100% {{ background-position: 0% 50%; }}
-        }}
-    </style>
-    <div style="position:relative; padding: 3px; border-radius: 24px; background: linear-gradient(60deg, #f59e0b, #ef4444, #8b5cf6, #3b82f6, #10b981, #f59e0b); background-size: 300% 300%; animation: rotateGradient 6s ease infinite; margin-bottom:30px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
-        <div style="background: rgba(10, 15, 26, 0.95); border-radius: 21px; padding: 35px; text-align: center; backdrop-filter: blur(20px);">
-            <div style="display:inline-block; padding:8px 16px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:20px; color:#f59e0b; font-size:0.8rem; font-weight:800; letter-spacing:1px; text-transform:uppercase; margin-bottom:20px;">Premium Locked</div>
-            <h2 style="color:white; margin-bottom:12px; font-weight: 900; font-size: 2.2rem; letter-spacing:-0.5px;">{feature_name}</h2>
-            <ul style="text-align:left; color:#d1d5db; margin: 0 auto 30px auto; max-width: 80%; font-size: 1.05rem; line-height: 1.8;">
-                {bullets_html}
-            </ul>
-            <hr style="border:none; height:1px; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); margin:30px 0;"/>
-            <h3 style="color:#10b981; margin-bottom:12px; font-weight:800; font-size: 1.8rem; text-shadow: 0 0 15px rgba(16,185,129,0.4);">🚀 Unlock The 6-Hour Pass (₹79)</h3>
-            <p style="color:#e2eaf8; font-size:1.1rem; margin-bottom:8px; font-weight:600;">Get unrestricted access to ALL premium tools instantly.</p>
-            <p style="color:#9ca3af; font-size:0.95rem; margin-bottom:25px; line-height:1.5;">After payment, you can use all premium features without limits during your session.<br/>A live countdown HUD will track your remaining time.<br/>Expires automatically when the timer ends.</p>
-            
-            <div style="display:inline-block; padding: 6px; background: linear-gradient(135deg, #f59e0b, #ec4899); border-radius: 20px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(245,158,11,0.3);">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi%3A%2F%2Fpay%3Fpa%3Dbhartiharsh64-1%40oksbi%26pn%3DHarsh%2520Bharti%26am%3D79.00%26cu%3DINR" style="border-radius:14px; display:block;" alt="UPI QR"/>
-            </div>
-            <p style="color:#e2eaf8; margin:5px 0; font-size:1.1rem;">UPI ID: <b style="color:white; letter-spacing:1px;">bhartiharsh64-1@oksbi</b></p>
-            <p style="color:#9ca3af; font-size:0.9rem; margin-bottom:0; margin-top:15px; opacity:0.8;">🔒 Powered by AI Verification. Instant Activation.</p>
-        </div>
-    </div>
+<style>
+@keyframes rotateGradient {{
+    0% {{ background-position: 0% 50%; }}
+    50% {{ background-position: 100% 50%; }}
+    100% {{ background-position: 0% 50%; }}
+}}
+</style>
+<div style="position:relative; padding: 3px; border-radius: 24px; background: linear-gradient(60deg, #f59e0b, #ef4444, #8b5cf6, #3b82f6, #10b981, #f59e0b); background-size: 300% 300%; animation: rotateGradient 6s ease infinite; margin-bottom:30px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+<div style="background: rgba(10, 15, 26, 0.95); border-radius: 21px; padding: 35px; text-align: center; backdrop-filter: blur(20px);">
+<div style="display:inline-block; padding:8px 16px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:20px; color:#f59e0b; font-size:0.8rem; font-weight:800; letter-spacing:1px; text-transform:uppercase; margin-bottom:20px;">Premium Locked</div>
+<h2 style="color:white; margin-bottom:12px; font-weight: 900; font-size: 2.2rem; letter-spacing:-0.5px;">{feature_name}</h2>
+<ul style="text-align:left; color:#d1d5db; margin: 0 auto 30px auto; max-width: 80%; font-size: 1.05rem; line-height: 1.8;">
+{bullets_html}
+</ul>
+<hr style="border:none; height:1px; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); margin:30px 0;"/>
+<h3 style="color:#10b981; margin-bottom:12px; font-weight:800; font-size: 1.8rem; text-shadow: 0 0 15px rgba(16,185,129,0.4);">🚀 Unlock The 6-Hour Pass (₹79)</h3>
+<p style="color:#e2eaf8; font-size:1.1rem; margin-bottom:8px; font-weight:600;">Get unrestricted access to ALL premium tools instantly.</p>
+<p style="color:#9ca3af; font-size:0.95rem; margin-bottom:25px; line-height:1.5;">After payment, you can use all premium features without limits during your session.<br/>A live countdown HUD will track your remaining time.<br/>Expires automatically when the timer ends.</p>
+<div style="display:inline-block; padding: 6px; background: linear-gradient(135deg, #f59e0b, #ec4899); border-radius: 20px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(245,158,11,0.3);">
+<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi%3A%2F%2Fpay%3Fpa%3Dbhartiharsh64-1%40oksbi%26pn%3DHarsh%2520Bharti%26am%3D79.00%26cu%3DINR" style="border-radius:14px; display:block;" alt="UPI QR"/>
+</div>
+<p style="color:#e2eaf8; margin:5px 0; font-size:1.1rem;">UPI ID: <b style="color:white; letter-spacing:1px;">bhartiharsh64-1@oksbi</b></p>
+<p style="color:#9ca3af; font-size:0.9rem; margin-bottom:0; margin-top:15px; opacity:0.8;">🔒 Powered by AI Verification. Instant Activation.</p>
+</div>
+</div>
     ''', unsafe_allow_html=True)
     
     st.markdown("### 📸 Verify Payment")
