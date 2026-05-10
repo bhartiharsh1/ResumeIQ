@@ -9,8 +9,9 @@ Specifically, check for:
 2. The amount is ₹79 (79 INR).
 3. The recipient is "bhartiharsh64-1@oksbi" or "Harsh Bharti".
 
-Return your answer strictly as a JSON object with two keys:
+Return your answer strictly as a JSON object with three keys:
 - "is_valid": boolean (true if all conditions are met, false otherwise)
+- "transaction_id": string (extract the UTR number, UPI transaction ID, or reference number visible in the screenshot. If none is clearly visible, return an empty string "")
 - "reason": A short string explaining your decision.
 
 ONLY output valid JSON without any markdown formatting like ```json.

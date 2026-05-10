@@ -341,6 +341,20 @@ if _OAUTH_READY and "user_email" not in st.session_state:
 _USER_EMAIL = st.session_state.get("user_email", "")
 _USER_NAME  = st.session_state.get("user_name",  "Guest")
 
+def execute_premium_action(action_name):
+    """
+    Checks if the user has usages left. If so, deducts one and returns True.
+    If not, removes pro status, shows error, and returns False.
+    """
+    from utils.access_codes import use_premium_action
+    
+    if use_premium_action(_USER_EMAIL):
+        return True
+        
+    st.session_state.is_pro = False
+    st.error(f"❌ Your premium access has expired (reached maximum of 3 usages). Please purchase a new access code to continue using {action_name}.")
+    return False
+
 st.sidebar.title("🧭 Navigation")
 page = st.sidebar.radio("Go to:", ["📊 Single Analyzer", "⚖️ A/B Testing Engine", "🎯 Career Tools", "🙋 Resume Help"])
 
@@ -415,19 +429,27 @@ def pro_wall(feature_name, bullets):
                 res = verify_payment_screenshot(base64_image)
                 
                 if res.get("is_valid"):
-                    st.success("✅ Payment Verified!")
-                    from utils.access_codes import generate_unique_code
+                    from utils.access_codes import is_transaction_used, mark_transaction_used, generate_unique_code
+                    tx_id = res.get("transaction_id", "").strip()
                     
-                    # Generate a unique code and persist it
-                    new_code = generate_unique_code()
-                    
-                    st.markdown(f'''
-                    <div style="background:linear-gradient(135deg, #10b981, #059669); border-radius:12px; padding:20px; text-align:center; margin: 20px 0; box-shadow: 0 4px 15px rgba(16,185,129,0.3);">
-                        <h3 style="color:white; margin:0; font-size:1.2rem;">Your Unique Access Code:</h3>
-                        <div style="font-size:2rem; font-weight:800; color:#fff; letter-spacing:2px; margin-top:10px; user-select:all;">{new_code}</div>
-                        <p style="color:rgba(255,255,255,0.8); margin:10px 0 0 0; font-size:0.9rem;">Copy this code and paste it below to unlock.</p>
-                    </div>
-                    ''', unsafe_allow_html=True)
+                    if not tx_id:
+                        st.warning("⚠️ Payment appears valid, but no unique transaction ID could be read. Please upload a clearer screenshot showing the UTR or Reference ID.")
+                    elif is_transaction_used(tx_id):
+                        st.error(f"❌ Verification Failed: This transaction ID ({tx_id}) has already been used.")
+                    else:
+                        st.success("✅ Payment Verified!")
+                        mark_transaction_used(tx_id)
+                        
+                        # Generate a unique code bound to this email and persist it
+                        new_code = generate_unique_code(_USER_EMAIL)
+                        
+                        st.markdown(f'''
+                        <div style="background:linear-gradient(135deg, #10b981, #059669); border-radius:12px; padding:20px; text-align:center; margin: 20px 0; box-shadow: 0 4px 15px rgba(16,185,129,0.3);">
+                            <h3 style="color:white; margin:0; font-size:1.2rem;">Your Unique Access Code:</h3>
+                            <div style="font-size:2rem; font-weight:800; color:#fff; letter-spacing:2px; margin-top:10px; user-select:all;">{new_code}</div>
+                            <p style="color:rgba(255,255,255,0.8); margin:10px 0 0 0; font-size:0.9rem;">Copy this code and paste it below to unlock 3 Premium Actions.</p>
+                        </div>
+                        ''', unsafe_allow_html=True)
                 else:
                     st.error(f"❌ Verification Failed: {res.get('reason', 'Invalid payment screenshot.')}")
     
@@ -441,11 +463,11 @@ def pro_wall(feature_name, bullets):
         st.write("")
         if st.button("Unlock 🔓", key=f"btn_{_key}", use_container_width=True):
             from utils.access_codes import validate_code
-            if validate_code(access_code):
+            if validate_code(access_code, _USER_EMAIL):
                 st.session_state.is_pro = True
                 st.rerun()
             else:
-                st.error("❌ Invalid Code!")
+                st.error("❌ Invalid Code! It may belong to another account or usage limit reached.")
     return True
 
 
@@ -676,15 +698,21 @@ if page == "🎯 Career Tools":
             if not all([cl_resume, cl_jd.strip(), cl_name.strip(), cl_company.strip(), cl_role.strip()]):
                 st.error("Please fill in all fields and upload your resume.")
             else:
-                if not st.session_state.is_pro and st.session_state.cover_letters_used >= 2:
-                    if pro_wall("Unlimited Cover Letters", ["You have used your 2 free cover letters for this session.", "Upgrade to Pro to generate unlimited personalized cover letters."]):
-                        st.stop()
-                with st.spinner("Crafting your personalized cover letter..."):
-                    cl_text = extract_text_from_pdf(cl_resume)
-                    from utils.cover_letter import generate_cover_letter
-                    st.session_state["cl_result"] = generate_cover_letter(cl_text, cl_jd, cl_name, cl_company, cl_role, cl_tone)
+                proceed = True
+                if st.session_state.cover_letters_used >= 2:
                     if not st.session_state.is_pro:
-                        st.session_state.cover_letters_used += 1
+                        if pro_wall("Unlimited Cover Letters", ["You have used your 2 free cover letters for this session.", "Upgrade to Pro to generate unlimited personalized cover letters."]):
+                            proceed = False
+                    else:
+                        proceed = execute_premium_action("Unlimited Cover Letters")
+                        
+                if proceed:
+                    with st.spinner("Crafting your personalized cover letter..."):
+                        cl_text = extract_text_from_pdf(cl_resume)
+                        from utils.cover_letter import generate_cover_letter
+                        st.session_state["cl_result"] = generate_cover_letter(cl_text, cl_jd, cl_name, cl_company, cl_role, cl_tone)
+                        if not st.session_state.is_pro:
+                            st.session_state.cover_letters_used += 1
 
         if "cl_result" in st.session_state:
             res = st.session_state["cl_result"]
@@ -788,10 +816,11 @@ if page == "🎯 Career Tools":
             if not iq_resume:
                 st.error("Please upload your resume.")
             else:
-                with st.spinner("Analyzing your profile and predicting questions..."):
-                    iq_text = extract_text_from_pdf(iq_resume)
-                    from utils.interview_prep import predict_interview_questions
-                    st.session_state["iq_result"] = predict_interview_questions(iq_text, iq_jd)
+                if execute_premium_action("Interview Predictor"):
+                    with st.spinner("Analyzing your profile and predicting questions..."):
+                        iq_text = extract_text_from_pdf(iq_resume)
+                        from utils.interview_prep import predict_interview_questions
+                        st.session_state["iq_result"] = predict_interview_questions(iq_text, iq_jd)
         if "iq_result" in st.session_state:
                 res = st.session_state["iq_result"]
                 if "error" in res:
@@ -835,10 +864,11 @@ if page == "🎯 Career Tools":
                 if not all([co_resume, co_company.strip(), co_role.strip()]):
                     st.error("Please upload resume and fill in company + role.")
                 else:
-                    with st.spinner("Writing your outreach messages..."):
-                        co_text = extract_text_from_pdf(co_resume)
-                        from utils.cold_outreach import generate_outreach
-                        st.session_state["co_result"] = generate_outreach(co_text, co_company, co_role, co_ptype, co_pname)
+                    if execute_premium_action("Cold Outreach Writer"):
+                        with st.spinner("Writing your outreach messages..."):
+                            co_text = extract_text_from_pdf(co_resume)
+                            from utils.cold_outreach import generate_outreach
+                            st.session_state["co_result"] = generate_outreach(co_text, co_company, co_role, co_ptype, co_pname)
             if "co_result" in st.session_state:
                 res = st.session_state["co_result"]
                 if "error" in res:
@@ -880,9 +910,10 @@ if page == "⚖️ A/B Testing Engine":
         if not res_a_file or not res_b_file or not jd_ab:
             st.error("Please upload both resumes and provide a job description.")
         else:
-            with st.spinner("Analyzing structures and querying LLM for Recruiter Feedback..."):
-                text_a = extract_text_from_pdf(res_a_file)
-                text_b = extract_text_from_pdf(res_b_file)
+            if execute_premium_action("A/B Testing Engine"):
+                with st.spinner("Analyzing structures and querying LLM for Recruiter Feedback..."):
+                    text_a = extract_text_from_pdf(res_a_file)
+                    text_b = extract_text_from_pdf(res_b_file)
                 score_a, ats_data_a = real_ats_score(text_a)
                 score_b, ats_data_b = real_ats_score(text_b)
                 from utils.jd_file import model, split_text, cosine_similarity
@@ -1073,9 +1104,10 @@ if page == "📊 Single Analyzer":
             if bullet_to_rewrite:
                 strength = st.radio("Rewrite Strength", ["Basic Polish", "Aggressive Transformation"], horizontal=True)
                 if st.button("Rewrite Bullet 🚀"):
-                    with st.spinner("Analyzing and rewriting..."):
-                        from utils.llm_rewriter import rewrite_bullet
-                        result = rewrite_bullet(bullet_to_rewrite, selected_profile, strength)
+                    if execute_premium_action("AI Resume Rewriter"):
+                        with st.spinner("Analyzing and rewriting..."):
+                            from utils.llm_rewriter import rewrite_bullet
+                            result = rewrite_bullet(bullet_to_rewrite, selected_profile, strength)
                         if "error" in result:
                             st.error(f"Failed to generate rewrite: {result['error']}")
                         else:
@@ -1098,19 +1130,27 @@ if page == "📊 Single Analyzer":
 
         jd = st.text_area("Paste Job Description")
 
-        if jd:
-            if not st.session_state.is_pro and st.session_state.job_matches_used >= 1:
-                if pro_wall("Unlimited Job Matches", ["You have used your 1 free job match for this session.", "Upgrade to Pro to test your resume against unlimited job descriptions."]):
-                    pass
-            else:
-                if not st.session_state.is_pro:
-                    st.session_state.job_matches_used += 1
-                final_score, semantic_score, skill_score = jd_match_final(
-                    resume_text, jd, present, missing
-                )
+        if st.button("Calculate Job Match 🎯"):
+            if jd:
+                proceed = True
+                if st.session_state.job_matches_used >= 1:
+                    if not st.session_state.is_pro:
+                        if pro_wall("Unlimited Job Matches", ["You have used your 1 free job match for this session.", "Upgrade to Pro to test your resume against unlimited job descriptions."]):
+                            proceed = False
+                    else:
+                        proceed = execute_premium_action("Unlimited Job Matches")
+                        
+                if proceed:
+                    if not st.session_state.is_pro:
+                        st.session_state.job_matches_used += 1
+                    final_score, semantic_score, skill_score = jd_match_final(
+                        resume_text, jd, present, missing
+                    )
 
-                st.metric("🎯 Match Score", f"{final_score:.2f}/100")
-                
-                st.write(f"🤖 Semantic Match: {semantic_score:.2f}%")
-                st.write(f"🧠 Skill Match: {skill_score:.2f}%")
+                    st.metric("🎯 Match Score", f"{final_score:.2f}/100")
+                    
+                    st.write(f"🤖 Semantic Match: {semantic_score:.2f}%")
+                    st.write(f"🧠 Skill Match: {skill_score:.2f}%")
+            else:
+                st.error("Please paste a job description first.")
 
