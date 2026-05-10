@@ -604,6 +604,15 @@ st.markdown("""
 # ═══════════════════════════════════════════════════════════════════════════════
 if page == "🙋 Resume Help":
 
+    if not st.session_state.is_pro:
+        if pro_wall("Premium Resume Help Service", [
+            "Personalized human review of your resume",
+            "Tailored improvements for ATS and recruiter standards",
+            "Direct feedback sent to you on WhatsApp"
+        ]):
+            st.stop()
+
+
     st.markdown("""
     <style>
     .help-hero {
@@ -645,7 +654,7 @@ if page == "🙋 Resume Help":
     # Hero banner
     st.markdown("""
     <div class="help-hero">
-      <h2>🙋 Free Resume Review Service</h2>
+      <h2>🙋 Premium Resume Review Service</h2>
       <p>
         Not sure how to build your resume? Fill out the form below — share your current resume
         and any suggestions, and I'll personally review it, improve it, and send it back to you.
