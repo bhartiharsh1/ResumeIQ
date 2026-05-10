@@ -29,12 +29,12 @@ def extract_basic_info(resume_text):
     # ------------------ COLLEGE ------------------
     college = "Not Found"
 
-    # 🔥 Strong pattern for prominent institutes (captures rest of the line)
+    # 🔥 Strong pattern for prominent institutes (excludes trailing colons and pipes)
     strong_patterns = [
-        r"(Indian Institute of Technology[^\n\|]*)",
-        r"(National Institute of Technology[^\n\|]*)",
-        r"(Birla Institute of Technology[^\n\|]*)",
-        r"(International Institute of Information Technology[^\n\|]*)"
+        r"(Indian Institute of Technology[^\n\|:]*)",
+        r"(National Institute of Technology[^\n\|:]*)",
+        r"(Birla Institute of Technology[^\n\|:]*)",
+        r"(International Institute of Information Technology[^\n\|:]*)"
     ]
 
     for pat in strong_patterns:
@@ -45,7 +45,9 @@ def extract_basic_info(resume_text):
             return name, roll_number, found
 
     # 🔥 fallback: line-based extraction
-    keywords = ["institute", "university", "college", "iit ", "nit ", "bits "]
+    keywords = ["institute", "university", "college", "school of", "academy"]
+    acronyms_pattern = r"\b(iit|nit|iiit|bits|iet|srm|vit|bhu|jnu|du)\b"
+    
     ignore_words = ["drdo", "project", "intern", "internship", "directorate", "summer", "experience", "school", "high school", "secondary", "pvt", "ltd", "private", "limited", "company"]
 
     for line in lines:
@@ -54,18 +56,22 @@ def extract_basic_info(resume_text):
         if any(ignore in line_lower for ignore in ignore_words):
             continue
 
-        if any(k in line_lower for k in keywords):
-            # Split by pipes or common separators to isolate the college name
-            parts = [p.strip() for p in re.split(r'[\|]', line)]
+        has_keyword = any(k in line_lower for k in keywords)
+        has_acronym = re.search(acronyms_pattern, line_lower)
+
+        if has_keyword or has_acronym:
+            # Split by pipes or colons to isolate the college name
+            parts = [p.strip() for p in re.split(r'[\|:]', line)]
             best_part = line
             for part in parts:
-                if any(k in part.lower() for k in keywords):
+                p_lower = part.lower()
+                if any(k in p_lower for k in keywords) or re.search(acronyms_pattern, p_lower):
                     best_part = part
                     break
 
             # remove CGPA, numbers, year, grades
             clean_line = re.sub(r"\b\d+(\.\d+)?\b", "", best_part)
-            clean_line = re.sub(r"cgpa|gpa|%|year|grade", "", clean_line, flags=re.IGNORECASE)
+            clean_line = re.sub(r"cgpa|gpa|%|year|grade|percent|score", "", clean_line, flags=re.IGNORECASE)
 
             # keep only meaningful words
             words = clean_line.split()
@@ -75,8 +81,8 @@ def extract_basic_info(resume_text):
             # Clean up trailing punctuation
             cleaned = re.sub(r"[,;\-\(\)]+$", "", cleaned).strip()
 
-            # filter garbage lines
-            if 2 <= len(cleaned.split()) <= 12:
+            # filter garbage lines (colleges are usually 2 to 12 words)
+            if 1 <= len(cleaned.split()) <= 12:
                 college = cleaned
                 break
 
