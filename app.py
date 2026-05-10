@@ -604,15 +604,6 @@ st.markdown("""
 # ═══════════════════════════════════════════════════════════════════════════════
 if page == "🙋 Resume Help":
 
-    if not st.session_state.is_pro:
-        if pro_wall("Premium Resume Help Service", [
-            "Personalized human review of your resume",
-            "Tailored improvements for ATS and recruiter standards",
-            "Direct feedback sent to you on WhatsApp"
-        ]):
-            st.stop()
-
-
     st.markdown("""
     <style>
     .help-hero {
@@ -661,6 +652,14 @@ if page == "🙋 Resume Help":
       </p>
     </div>
     """, unsafe_allow_html=True)
+
+    if not st.session_state.is_pro:
+        if pro_wall("Premium Resume Help Service", [
+            "Personalized human review of your resume",
+            "Tailored improvements for ATS and recruiter standards",
+            "Direct feedback sent to you on WhatsApp"
+        ]):
+            st.stop()
 
     # How it works — 3 steps
     s1, s2, s3 = st.columns(3)
@@ -884,11 +883,10 @@ if page == "🎯 Career Tools":
     # ── TAB 3: Interview Predictor ───────────────────────────────────────────
     with tab3:
         st.subheader("🎤 Interview Question Predictor")
+        st.write("Upload your resume to generate likely interview questions specific to your background and target role.")
         if not st.session_state.is_pro:
             if pro_wall("Interview Predictor", ["AI-generated behavioral, technical & role-specific questions", "Personalized to your resume background", "Company-specific questions when JD is provided", "Practice-ready format with Q-by-Q breakdown"]):
                 pass
-        else:
-            st.write("Upload your resume to generate likely interview questions specific to your background and target role.")
         iq_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"], key="iq_resume")
         iq_jd = st.text_area("Job Description (optional — unlocks company & role-specific questions)", height=120, key="iq_jd")
         if st.button("Generate Questions 🎤", key="iq_btn"):
@@ -928,27 +926,26 @@ if page == "🎯 Career Tools":
     # ── TAB 4: Cold Outreach Writer ───────────────────────────────────────────
     with tab4:
         st.subheader("📨 Cold Outreach Writer")
+        st.write("Generate cold emails and LinkedIn messages personalized from your resume — written to actually get replies.")
         if not st.session_state.is_pro:
             if pro_wall("Cold Email & LinkedIn Outreach Generator", ["Personalized cold emails drafted from your resume", "LinkedIn connection messages (≤80 words, high-reply rate)", "Tailored for Recruiter, Alumni, Referral or Hiring Manager", "Written to actually get responses — not generic templates"]):
                 pass
-        else:
-            st.write("Generate cold emails and LinkedIn messages personalized from your resume — written to actually get replies.")
-            co_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"], key="co_resume")
-            c1, c2, c3 = st.columns(3)
-            with c1: co_company = st.text_input("Target Company", key="co_company")
-            with c2: co_role    = st.text_input("Target Role",    key="co_role")
-            with c3: co_ptype   = st.selectbox("Writing to...", ["Recruiter", "Alumni", "Referral", "Hiring Manager"], key="co_ptype")
-            co_pname = st.text_input("Their Name (optional — makes it more personal)", key="co_pname")
-            if st.button("Generate Outreach 📨", key="co_btn"):
-                if not all([co_resume, co_company.strip(), co_role.strip()]):
-                    st.error("Please upload resume and fill in company + role.")
-                else:
-                    if check_premium_access("Cold Outreach Writer"):
-                        with st.spinner("Writing your outreach messages..."):
-                            co_text = extract_text_from_pdf(co_resume)
-                            from utils.cold_outreach import generate_outreach
-                            st.session_state["co_result"] = generate_outreach(co_text, co_company, co_role, co_ptype, co_pname)
-            if "co_result" in st.session_state:
+        co_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"], key="co_resume")
+        c1, c2, c3 = st.columns(3)
+        with c1: co_company = st.text_input("Target Company", key="co_company")
+        with c2: co_role    = st.text_input("Target Role",    key="co_role")
+        with c3: co_ptype   = st.selectbox("Writing to...", ["Recruiter", "Alumni", "Referral", "Hiring Manager"], key="co_ptype")
+        co_pname = st.text_input("Their Name (optional — makes it more personal)", key="co_pname")
+        if st.button("Generate Outreach 📨", key="co_btn"):
+            if not all([co_resume, co_company.strip(), co_role.strip()]):
+                st.error("Please upload resume and fill in company + role.")
+            else:
+                if check_premium_access("Cold Outreach Writer"):
+                    with st.spinner("Writing your outreach messages..."):
+                        co_text = extract_text_from_pdf(co_resume)
+                        from utils.cold_outreach import generate_outreach
+                        st.session_state["co_result"] = generate_outreach(co_text, co_company, co_role, co_ptype, co_pname)
+        if "co_result" in st.session_state:
                 res = st.session_state["co_result"]
                 if "error" in res:
                     st.error(f"❌ {res['error']}")
@@ -1168,6 +1165,7 @@ if page == "📊 Single Analyzer":
 
         # -------- AI RESUME REWRITER — 🔒 PRO --------
         st.subheader("✨ AI Resume Rewriter")
+        st.write("Instantly upgrade any bullet point on your resume using AI, optimized for ATS and recruiter impact.")
         if not st.session_state.is_pro:
             if pro_wall("AI Resume Rewriter", ["Select any bullet from your resume to instantly upgrade", "Basic Polish or Aggressive Transformation modes", "Before vs After comparison with ATS-optimized output", "AI feedback explaining every rewrite decision"]):
                 pass
