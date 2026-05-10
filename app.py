@@ -396,12 +396,38 @@ def pro_wall(feature_name, bullets):
         </ul>
         <hr style="border:none;height:1px;background:rgba(255,255,255,0.1);margin:20px 0;"/>
         <h3 style="color:#10b981;margin-bottom:8px;font-weight:700;">🚀 Upgrade to Pro (₹79)</h3>
-        <p style="color:#9ca3af;font-size:14px;margin-bottom:16px;">Scan & pay via Google Pay, PhonePe or any UPI app, then enter your access code below.</p>
+        <p style="color:#9ca3af;font-size:14px;margin-bottom:16px;">Scan & pay via Google Pay, PhonePe or any UPI app, then upload the screenshot below.</p>
         <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi%3A%2F%2Fpay%3Fpa%3Dbhartiharsh64-1%40oksbi%26pn%3DHarsh%2520Bharti%26cu%3DINR" style="border-radius:12px;border:3px solid #f59e0b;margin-bottom:12px;" alt="UPI QR"/>
         <p style="color:#e2eaf8;margin:4px 0;">UPI ID: <b>bhartiharsh64-1@oksbi</b></p>
-        <p style="color:#9ca3af;font-size:14px;margin-bottom:20px;">Once paid, send a screenshot on WhatsApp to <b>7800326119</b> to instantly receive your Access Code.</p>
+        <p style="color:#9ca3af;font-size:14px;margin-bottom:20px;">Once paid, our AI will verify your payment instantly and provide your Access Code.</p>
     </div>
     ''', unsafe_allow_html=True)
+    
+    st.markdown("### 📸 Verify Payment")
+    payment_screenshot = st.file_uploader("Upload Payment Screenshot (JPG/PNG)", type=["png", "jpg", "jpeg"], key=f"img_{_key}")
+    if payment_screenshot:
+        if st.button("Verify Screenshot & Get Code 🔍", key=f"verify_{_key}", use_container_width=True):
+            with st.spinner("AI is verifying your payment screenshot..."):
+                import base64
+                from utils.payment_verifier import verify_payment_screenshot
+                
+                base64_image = base64.b64encode(payment_screenshot.read()).decode("utf-8")
+                res = verify_payment_screenshot(base64_image)
+                
+                if res.get("is_valid"):
+                    st.success("✅ Payment Verified!")
+                    st.markdown('''
+                    <div style="background:linear-gradient(135deg, #10b981, #059669); border-radius:12px; padding:20px; text-align:center; margin: 20px 0; box-shadow: 0 4px 15px rgba(16,185,129,0.3);">
+                        <h3 style="color:white; margin:0; font-size:1.2rem;">Your Access Code:</h3>
+                        <div style="font-size:2rem; font-weight:800; color:#fff; letter-spacing:2px; margin-top:10px; user-select:all;">HARSH-PRO-2026</div>
+                        <p style="color:rgba(255,255,255,0.8); margin:10px 0 0 0; font-size:0.9rem;">Copy this code and paste it below to unlock.</p>
+                    </div>
+                    ''', unsafe_allow_html=True)
+                else:
+                    st.error(f"❌ Verification Failed: {res.get('reason', 'Invalid payment screenshot.')}")
+    
+    st.divider()
+
     c1, c2 = st.columns([3, 1])
     with c1:
         access_code = st.text_input("🔑 Enter Access Code:", type="password", key=f"code_{_key}")
