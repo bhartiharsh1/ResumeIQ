@@ -392,32 +392,39 @@ if _USER_EMAIL:
         expiry_ts = get_premium_expiry(_USER_EMAIL)
         import time
         if expiry_ts > time.time():
-            st.sidebar.markdown(f'''
-            <div style="background:linear-gradient(135deg, #10b981, #059669); border-radius:12px; padding:15px; margin-top:20px; text-align:center; box-shadow: 0 4px 15px rgba(16,185,129,0.2);">
-                <div style="color:white; font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">Premium Active</div>
-                <div id="countdown-timer" style="color:white; font-size:1.8rem; font-weight:800; font-family:monospace;">--:--:--</div>
-                <div style="color:rgba(255,255,255,0.8); font-size:0.75rem; margin-top:5px;">Unlimited Access</div>
-            </div>
-            <script>
-                // Update the countdown every 1 second
-                var countDownDate = {expiry_ts} * 1000;
-                var x = setInterval(function() {{
-                    var now = new Date().getTime();
-                    var distance = countDownDate - now;
-                    if (distance < 0) {{
-                        clearInterval(x);
-                        var el = window.parent.document.getElementById("countdown-timer");
-                        if(el) el.innerHTML = "EXPIRED";
-                    }} else {{
-                        var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                        var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                        var seconds = Math.floor((distance % (1000 * 60)) / 1000);
-                        var el = window.parent.document.getElementById("countdown-timer");
-                        if(el) el.innerHTML = (hours < 10 ? "0" + hours : hours) + ":" + (minutes < 10 ? "0" + minutes : minutes) + ":" + (seconds < 10 ? "0" + seconds : seconds);
-                    }}
-                }}, 1000);
-            </script>
-            ''', unsafe_allow_html=True)
+            import streamlit.components.v1 as components
+            with st.sidebar:
+                components.html(f'''
+                <style>
+                    body {{ margin: 0; padding: 0; font-family: 'Outfit', sans-serif; overflow: hidden; }}
+                </style>
+                <div style="background:linear-gradient(135deg, #10b981, #059669); border-radius:12px; padding:15px; margin-top:10px; text-align:center; box-shadow: 0 4px 15px rgba(16,185,129,0.2);">
+                    <div style="color:white; font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">Premium Active</div>
+                    <div id="countdown-timer" style="color:white; font-size:1.8rem; font-weight:800; font-family:monospace;">--:--:--</div>
+                    <div style="color:rgba(255,255,255,0.8); font-size:0.75rem; margin-top:5px;">Unlimited Access</div>
+                </div>
+                <script>
+                    var countDownDate = {expiry_ts} * 1000;
+                    var x = setInterval(function() {{
+                        var now = new Date().getTime();
+                        var distance = countDownDate - now;
+                        if (distance < 0) {{
+                            clearInterval(x);
+                            document.getElementById("countdown-timer").innerHTML = "EXPIRED";
+                        }} else {{
+                            var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                            var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                            var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                            
+                            var h = hours < 10 ? "0" + hours : hours;
+                            var m = minutes < 10 ? "0" + minutes : minutes;
+                            var s = seconds < 10 ? "0" + seconds : seconds;
+                            
+                            document.getElementById("countdown-timer").innerHTML = h + ":" + m + ":" + s;
+                        }}
+                    }}, 1000);
+                </script>
+                ''', height=130)
         else:
             st.session_state.is_pro = False
             st.rerun()
