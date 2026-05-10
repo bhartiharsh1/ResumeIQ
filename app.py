@@ -362,7 +362,7 @@ def check_premium_access(action_name):
     return False
 
 st.sidebar.title("🧭 Navigation")
-page = st.sidebar.radio("Go to:", ["📊 Single Analyzer", "⚖️ A/B Testing Engine", "🎯 Career Tools", "🙋 Resume Help"])
+page = st.sidebar.radio("Go to:", ["📊 Single Analyzer", "⚖️ A/B Testing Engine", "🎯 Career Tools", "🙋 Resume Help", "💬 Suggestions & Complaints"])
 
 
 
@@ -1104,7 +1104,9 @@ if page == "📊 Single Analyzer":
         # -------- PLACEMENT PROBABILITY — 🔒 PRO --------
         st.subheader("🎯 Placement Probability Engine")
         from utils.placement import calculate_placement_probability
-        skill_match_percentage = (len(exact) / max(1, len(exact) + len(missing))) * 100
+        # Curve skill match: matching ~60% of the massive master database is practically a 100% match in reality
+        raw_skill_ratio = len(exact) / max(1, len(exact) + len(missing))
+        skill_match_percentage = min(100.0, raw_skill_ratio * 160.0)
         impact_res = impact_score(resume_text)
         prob_data = calculate_placement_probability(score, skill_match_percentage, impact_res)
         p_val = prob_data["probability"]
@@ -1223,4 +1225,46 @@ if page == "📊 Single Analyzer":
                     st.write(f"🧠 Skill Match: {skill_score:.2f}%")
             else:
                 st.error("Please paste a job description first.")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 💬  SUGGESTIONS & COMPLAINTS PAGE
+# ═══════════════════════════════════════════════════════════════════════════════
+if page == "💬 Suggestions & Complaints":
+    st.markdown("""
+    <style>
+    .feedback-hero {
+        background: linear-gradient(135deg, #0f3460 0%, #16213e 50%, #1a1a2e 100%);
+        border: 1px solid rgba(100,180,255,0.2);
+        border-radius: 18px;
+        padding: 32px 36px;
+        margin-bottom: 24px;
+        text-align: center;
+    }
+    .feedback-hero h2 { color: #e2eaf8; font-size: 1.7rem; margin-bottom: 8px; }
+    .feedback-hero p  { color: #8eb8f0; font-size: 1rem; line-height: 1.6; margin: 0; }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="feedback-hero">
+      <h2>💬 Suggestions & Complaints</h2>
+      <p>
+        We value your feedback! If you have any suggestions for new features, found a bug, or have a complaint, please let us know so we can improve ResumeIQ.
+      </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.form("suggestion_form"):
+        feedback_type = st.selectbox("What is this regarding?", ["Suggestion", "Bug Report", "Complaint", "Other"])
+        feedback_text = st.text_area("Please describe your issue or suggestion in detail:", height=150)
+        submitted = st.form_submit_button("Submit Feedback 📨")
+        
+        if submitted:
+            if not feedback_text.strip():
+                st.error("Please provide some details before submitting.")
+            else:
+                from utils.feedback import save_feedback
+                save_feedback(feedback_type, feedback_text, _USER_EMAIL)
+                st.success("✅ Thank you! Your feedback has been submitted successfully and will be reviewed by our team.")
+
 

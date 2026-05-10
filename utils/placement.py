@@ -6,18 +6,23 @@ def calculate_placement_probability(format_score, skill_score, impact_score):
     """
 
     # Calculate holistic probability using real-world recruitment weights
-    probability = (format_score * 0.30) + (skill_score * 0.45) + (impact_score * 0.25)
+    # 50% Formatting | 35% Hard Skill Keywords | 15% Measurable Impact.
+    probability = (format_score * 0.50) + (skill_score * 0.35) + (impact_score * 0.15)
+
+    # To ensure it accurately reflects real placement odds, we curve it slightly 
+    # to elevate the floor if the core formatting is highly parsable.
+    probability = (probability * 0.7) + (format_score * 0.3)
 
     # Prevent edge cases from showing perfect 100s or breaking
     # Strictly enforced user requirement: Probability can never exceed base formatting!
     probability = min(max(probability, 1.0), format_score)
 
     # Categorization tiers based on competitive applicant pool benchmarks
-    if probability < 45:
+    if probability < 55:
         tier = "Below Average"
-    elif probability < 65:
+    elif probability < 70:
         tier = "Average Candidate"
-    elif probability < 80:
+    elif probability < 85:
         tier = "Above Average"
     else:
         tier = "Top-Tier Candidate"
