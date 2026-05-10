@@ -45,104 +45,99 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 
-/* ── Base font — cascade only, never force-override icon fonts ── */
+/* ── Base font ── */
 body { font-family: 'Outfit', sans-serif; }
 
 /* ── Deep-space gradient background ── */
 .stApp {
-    background-color: #080c14 !important;
+    background-color: #050810 !important;
     background-image:
-        radial-gradient(ellipse at 15% 40%, rgba(99,102,241,0.09) 0%, transparent 55%),
-        radial-gradient(ellipse at 85% 15%, rgba(139,92,246,0.09) 0%, transparent 55%),
-        radial-gradient(ellipse at 50% 90%, rgba(6,182,212,0.06) 0%, transparent 50%);
+        radial-gradient(circle at 10% 20%, rgba(99,102,241,0.12) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(139,92,246,0.12) 0%, transparent 40%),
+        radial-gradient(circle at 50% 50%, rgba(6,182,212,0.08) 0%, transparent 60%);
 }
 
 /* ── Sidebar — frosted-glass 3D panel ── */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(160deg, #0e1420 0%, #0a0f1a 100%) !important;
-    border-right: 1px solid rgba(99,102,241,0.25) !important;
-    box-shadow: 4px 0 40px rgba(0,0,0,0.6), inset -1px 0 0 rgba(99,102,241,0.12) !important;
+    background: rgba(10, 15, 26, 0.6) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-right: 1px solid rgba(255,255,255,0.05) !important;
+    box-shadow: 10px 0 30px rgba(0,0,0,0.5) !important;
 }
-section[data-testid="stSidebar"] * { color: #c4c9d8 !important; }
-section[data-testid="stSidebar"] .stRadio label:hover { color: #a78bfa !important; }
+section[data-testid="stSidebar"] * { color: #d1d5db !important; }
+section[data-testid="stSidebar"] .stRadio label:hover { color: #a78bfa !important; text-shadow: 0 0 8px rgba(167,139,250,0.4); }
 
 /* ── Animated gradient headings ── */
 h1 {
-    background: linear-gradient(135deg, #667eea 0%, #a78bfa 45%, #06b6d4 100%);
+    background: linear-gradient(to right, #667eea, #a78bfa, #06b6d4, #667eea);
+    background-size: 200% auto;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    background-clip: text;
+    font-weight: 900 !important;
+    letter-spacing: -1px !important;
+    filter: drop-shadow(0 4px 12px rgba(102,126,234,0.4));
+    animation: shine 4s linear infinite;
+}
+@keyframes shine {
+    to { background-position: 200% center; }
+}
+
+h2, h3 {
+    background: linear-gradient(135deg, #f3f4f6 0%, #cbd5e1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
     font-weight: 800 !important;
     letter-spacing: -0.5px !important;
-    filter: drop-shadow(0 0 24px rgba(102,126,234,0.35));
-    animation: hue-rotate 6s linear infinite;
-}
-h2, h3 {
-    background: linear-gradient(135deg, #e2eaf8 0%, #a78bfa 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    font-weight: 700 !important;
-}
-@keyframes hue-rotate {
-    0%   { filter: drop-shadow(0 0 24px rgba(102,126,234,0.35)) hue-rotate(0deg); }
-    100% { filter: drop-shadow(0 0 24px rgba(102,126,234,0.35)) hue-rotate(360deg); }
 }
 
-/* ── 3D Buttons ── */
+/* ── 3D Buttons with Glow ── */
 .stButton > button {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
     color: #fff !important;
-    border: none !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
     border-radius: 12px !important;
     font-weight: 700 !important;
-    font-size: 0.9rem !important;
-    padding: 10px 24px !important;
-    letter-spacing: 0.4px !important;
-    transform: perspective(600px) translateZ(0px);
-    box-shadow:
-        0 6px 20px rgba(102,126,234,0.45),
-        0 1px 0 rgba(255,255,255,0.12) inset,
-        0 -3px 0 rgba(0,0,0,0.25) inset !important;
-    transition: all 0.15s cubic-bezier(0.4,0,0.2,1) !important;
+    font-size: 1rem !important;
+    padding: 12px 28px !important;
+    letter-spacing: 0.5px !important;
+    box-shadow: 0 8px 25px rgba(99,102,241,0.4), inset 0 2px 0 rgba(255,255,255,0.2) !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    text-transform: uppercase;
 }
 .stButton > button:hover {
-    transform: perspective(600px) translateZ(12px) translateY(-3px) !important;
-    box-shadow:
-        0 14px 36px rgba(102,126,234,0.65),
-        0 1px 0 rgba(255,255,255,0.18) inset !important;
-    background: linear-gradient(135deg, #7c8ef5 0%, #9d6cd4 100%) !important;
+    transform: translateY(-4px) scale(1.02) !important;
+    box-shadow: 0 15px 35px rgba(139,92,246,0.6), inset 0 2px 0 rgba(255,255,255,0.3) !important;
+    background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%) !important;
 }
 .stButton > button:active {
-    transform: perspective(600px) translateZ(2px) translateY(1px) !important;
-    box-shadow: 0 2px 8px rgba(102,126,234,0.35) !important;
+    transform: translateY(1px) !important;
+    box-shadow: 0 4px 15px rgba(99,102,241,0.4) !important;
 }
 
-/* ── 3D Metric cards ── */
+/* ── Glass Metric cards ── */
 [data-testid="metric-container"] {
-    background: linear-gradient(135deg, #131825 0%, #0f1520 100%) !important;
-    border: 1px solid rgba(99,102,241,0.22) !important;
-    border-radius: 18px !important;
-    padding: 20px !important;
-    transform: perspective(900px) rotateX(3deg);
-    box-shadow:
-        0 12px 35px rgba(0,0,0,0.5),
-        0 1px 0 rgba(255,255,255,0.04) inset,
-        0 -5px 0 rgba(0,0,0,0.2) inset !important;
-    transition: all 0.3s cubic-bezier(0.4,0,0.2,1) !important;
+    background: rgba(20, 25, 40, 0.4) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 20px !important;
+    padding: 24px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
+    transition: all 0.3s ease !important;
 }
 [data-testid="metric-container"]:hover {
-    transform: perspective(900px) rotateX(0deg) translateY(-6px) !important;
-    box-shadow: 0 24px 50px rgba(99,102,241,0.25) !important;
-    border-color: rgba(99,102,241,0.55) !important;
+    transform: translateY(-5px) !important;
+    border-color: rgba(99,102,241,0.5) !important;
+    box-shadow: 0 15px 40px rgba(99,102,241,0.2) !important;
 }
 [data-testid="stMetricValue"] {
-    background: linear-gradient(135deg, #667eea, #a78bfa) !important;
+    background: linear-gradient(135deg, #06b6d4, #3b82f6) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
-    background-clip: text !important;
-    font-weight: 800 !important;
-    font-size: 2rem !important;
+    font-weight: 900 !important;
+    font-size: 2.4rem !important;
+    letter-spacing: -1px !important;
 }
 
 /* ── 3D Tabs ── */
@@ -179,17 +174,20 @@ h2, h3 {
 .stTextInput > div > div > input,
 .stTextArea > div > div > textarea,
 .stSelectbox > div > div > div {
-    background: rgba(19,24,37,0.95) !important;
-    border: 1px solid rgba(99,102,241,0.22) !important;
-    border-radius: 11px !important;
-    color: #e2eaf8 !important;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.35) inset !important;
-    transition: all 0.2s ease !important;
+    background: rgba(15, 20, 30, 0.6) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 12px !important;
+    color: #f3f4f6 !important;
+    font-size: 1rem !important;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.2) !important;
+    transition: all 0.3s ease !important;
 }
 .stTextInput > div > div > input:focus,
 .stTextArea > div > div > textarea:focus {
-    border-color: rgba(99,102,241,0.65) !important;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.35) inset, 0 0 0 3px rgba(99,102,241,0.18) !important;
+    background: rgba(20, 25, 40, 0.8) !important;
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 4px rgba(139,92,246,0.2), inset 0 2px 4px rgba(0,0,0,0.2) !important;
 }
 
 /* ── 3D Expanders ── */
@@ -222,32 +220,40 @@ h2, h3 {
 
 /* ── Progress bar — glowing ── */
 .stProgress > div > div > div > div {
-    background: linear-gradient(90deg, #667eea, #a78bfa) !important;
-    border-radius: 4px !important;
-    box-shadow: 0 0 12px rgba(102,126,234,0.55) !important;
+    background: linear-gradient(90deg, #06b6d4, #3b82f6, #8b5cf6) !important;
+    background-size: 200% auto !important;
+    animation: shine 2s linear infinite !important;
+    border-radius: 8px !important;
+    box-shadow: 0 0 15px rgba(59,130,246,0.5) !important;
 }
 
-/* ── Alerts — colour-coded 3D cards ── */
-div[data-testid="stSuccessMessage"], .stSuccess, [class*="stSuccess"] {
-    background: rgba(16,185,129,0.08) !important;
-    border: 1px solid rgba(16,185,129,0.3) !important;
-    border-left: 4px solid #10b981 !important;
+/* ── Alerts — Glass Panels ── */
+div[data-testid="stSuccessMessage"], .stSuccess {
+    background: rgba(16,185,129,0.1) !important;
+    backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(16,185,129,0.2) !important;
+    border-left: 5px solid #10b981 !important;
     border-radius: 12px !important;
-    box-shadow: 0 4px 20px rgba(16,185,129,0.12) !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2) !important;
+    color: #d1fae5 !important;
 }
-div[data-testid="stErrorMessage"], .stError, [class*="stError"] {
-    background: rgba(239,68,68,0.08) !important;
-    border: 1px solid rgba(239,68,68,0.3) !important;
-    border-left: 4px solid #ef4444 !important;
+div[data-testid="stErrorMessage"], .stError {
+    background: rgba(239,68,68,0.1) !important;
+    backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(239,68,68,0.2) !important;
+    border-left: 5px solid #ef4444 !important;
     border-radius: 12px !important;
+    color: #fee2e2 !important;
 }
-div[data-testid="stWarningMessage"], .stWarning, [class*="stWarning"] {
-    background: rgba(245,158,11,0.08) !important;
-    border: 1px solid rgba(245,158,11,0.3) !important;
-    border-left: 4px solid #f59e0b !important;
+div[data-testid="stWarningMessage"], .stWarning {
+    background: rgba(245,158,11,0.1) !important;
+    backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(245,158,11,0.2) !important;
+    border-left: 5px solid #f59e0b !important;
     border-radius: 12px !important;
+    color: #fef3c7 !important;
 }
-div[data-testid="stInfoMessage"], .stInfo, [class*="stInfo"] {
+div[data-testid="stInfoMessage"], .stInfo {
     background: rgba(99,102,241,0.08) !important;
     border: 1px solid rgba(99,102,241,0.3) !important;
     border-left: 4px solid #6366f1 !important;
@@ -397,11 +403,16 @@ if _USER_EMAIL:
                 components.html(f'''
                 <style>
                     body {{ margin: 0; padding: 0; font-family: 'Outfit', sans-serif; overflow: hidden; }}
+                    @keyframes pulseGlow {{
+                        0% {{ box-shadow: 0 0 15px rgba(16,185,129,0.2); }}
+                        50% {{ box-shadow: 0 0 30px rgba(16,185,129,0.6); }}
+                        100% {{ box-shadow: 0 0 15px rgba(16,185,129,0.2); }}
+                    }}
                 </style>
-                <div style="background:linear-gradient(135deg, #10b981, #059669); border-radius:12px; padding:15px; margin-top:10px; text-align:center; box-shadow: 0 4px 15px rgba(16,185,129,0.2);">
-                    <div style="color:white; font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">Premium Active</div>
-                    <div id="countdown-timer" style="color:white; font-size:1.8rem; font-weight:800; font-family:monospace;">--:--:--</div>
-                    <div style="color:rgba(255,255,255,0.8); font-size:0.75rem; margin-top:5px;">Unlimited Access</div>
+                <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 16px; padding: 20px; margin-top: 10px; text-align: center; backdrop-filter: blur(10px); animation: pulseGlow 3s infinite;">
+                    <div style="color: #10b981; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; text-shadow: 0 0 10px rgba(16,185,129,0.5);">Premium Session</div>
+                    <div id="countdown-timer" style="color: white; font-size: 2.2rem; font-weight: 900; font-family: monospace; text-shadow: 0 0 15px rgba(255,255,255,0.4); letter-spacing: 1px;">--:--:--</div>
+                    <div style="color: rgba(255,255,255,0.6); font-size: 0.75rem; margin-top: 8px; text-transform: uppercase; letter-spacing: 1px;">Unlimited Access Pass</div>
                 </div>
                 <script>
                     var countDownDate = {expiry_ts} * 1000;
@@ -449,18 +460,31 @@ def pro_wall(feature_name, bullets):
     bullets_html = "".join([f"<li>{b}</li>" for b in bullets])
     _key = feature_name.lower().replace(" ", "_").replace("/", "")
     st.markdown(f'''
-    <div style="background:linear-gradient(135deg, #0f1520, #160e2a); border: 1px solid rgba(245,158,11,0.4); border-radius:18px; padding:24px; margin-bottom:20px; text-align:center;">
-        <h2 style="color:#f59e0b; margin-bottom:12px; font-weight: 800;">🔒 {feature_name} — Pro Feature</h2>
-        <ul style="text-align:left; color:#e2eaf8; margin-bottom:20px; font-size: 0.95rem; line-height: 1.6;">
-            {bullets_html}
-        </ul>
-        <hr style="border:none;height:1px;background:rgba(255,255,255,0.1);margin:20px 0;"/>
-        <h3 style="color:#10b981;margin-bottom:8px;font-weight:700;">🚀 Upgrade to Pro (₹79)</h3>
-        <p style="color:#e2eaf8;font-size:15px;margin-bottom:8px;font-weight:600;">Unlock full premium access for 6 hours.</p>
-        <p style="color:#9ca3af;font-size:14px;margin-bottom:16px;">After payment, you can use all premium features without restrictions during your active session.<br/>A live countdown timer will show your remaining access time in real time.<br/>Once the timer ends, premium access will expire automatically.</p>
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi%3A%2F%2Fpay%3Fpa%3Dbhartiharsh64-1%40oksbi%26pn%3DHarsh%2520Bharti%26cu%3DINR" style="border-radius:12px;border:3px solid #f59e0b;margin-bottom:12px;" alt="UPI QR"/>
-        <p style="color:#e2eaf8;margin:4px 0;">UPI ID: <b>bhartiharsh64-1@oksbi</b></p>
-        <p style="color:#9ca3af;font-size:14px;margin-bottom:20px;">Once paid, our AI will verify your payment instantly and provide your Access Code.</p>
+    <style>
+        @keyframes rotateGradient {{
+            0% {{ background-position: 0% 50%; }}
+            50% {{ background-position: 100% 50%; }}
+            100% {{ background-position: 0% 50%; }}
+        }}
+    </style>
+    <div style="position:relative; padding: 3px; border-radius: 24px; background: linear-gradient(60deg, #f59e0b, #ef4444, #8b5cf6, #3b82f6, #10b981, #f59e0b); background-size: 300% 300%; animation: rotateGradient 6s ease infinite; margin-bottom:30px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+        <div style="background: rgba(10, 15, 26, 0.95); border-radius: 21px; padding: 35px; text-align: center; backdrop-filter: blur(20px);">
+            <div style="display:inline-block; padding:8px 16px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:20px; color:#f59e0b; font-size:0.8rem; font-weight:800; letter-spacing:1px; text-transform:uppercase; margin-bottom:20px;">Premium Locked</div>
+            <h2 style="color:white; margin-bottom:12px; font-weight: 900; font-size: 2.2rem; letter-spacing:-0.5px;">{feature_name}</h2>
+            <ul style="text-align:left; color:#d1d5db; margin: 0 auto 30px auto; max-width: 80%; font-size: 1.05rem; line-height: 1.8;">
+                {bullets_html}
+            </ul>
+            <hr style="border:none; height:1px; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); margin:30px 0;"/>
+            <h3 style="color:#10b981; margin-bottom:12px; font-weight:800; font-size: 1.8rem; text-shadow: 0 0 15px rgba(16,185,129,0.4);">🚀 Unlock The 6-Hour Pass (₹79)</h3>
+            <p style="color:#e2eaf8; font-size:1.1rem; margin-bottom:8px; font-weight:600;">Get unrestricted access to ALL premium tools instantly.</p>
+            <p style="color:#9ca3af; font-size:0.95rem; margin-bottom:25px; line-height:1.5;">After payment, you can use all premium features without limits during your session.<br/>A live countdown HUD will track your remaining time.<br/>Expires automatically when the timer ends.</p>
+            
+            <div style="display:inline-block; padding: 6px; background: linear-gradient(135deg, #f59e0b, #ec4899); border-radius: 20px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(245,158,11,0.3);">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi%3A%2F%2Fpay%3Fpa%3Dbhartiharsh64-1%40oksbi%26pn%3DHarsh%2520Bharti%26cu%3DINR" style="border-radius:14px; display:block;" alt="UPI QR"/>
+            </div>
+            <p style="color:#e2eaf8; margin:5px 0; font-size:1.1rem;">UPI ID: <b style="color:white; letter-spacing:1px;">bhartiharsh64-1@oksbi</b></p>
+            <p style="color:#9ca3af; font-size:0.9rem; margin-bottom:0; margin-top:15px; opacity:0.8;">🔒 Powered by AI Verification. Instant Activation.</p>
+        </div>
     </div>
     ''', unsafe_allow_html=True)
     
