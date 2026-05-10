@@ -480,7 +480,7 @@ def pro_wall(feature_name, bullets):
             <p style="color:#9ca3af; font-size:0.95rem; margin-bottom:25px; line-height:1.5;">After payment, you can use all premium features without limits during your session.<br/>A live countdown HUD will track your remaining time.<br/>Expires automatically when the timer ends.</p>
             
             <div style="display:inline-block; padding: 6px; background: linear-gradient(135deg, #f59e0b, #ec4899); border-radius: 20px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(245,158,11,0.3);">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi%3A%2F%2Fpay%3Fpa%3Dbhartiharsh64-1%40oksbi%26pn%3DHarsh%2520Bharti%26cu%3DINR" style="border-radius:14px; display:block;" alt="UPI QR"/>
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi%3A%2F%2Fpay%3Fpa%3Dbhartiharsh64-1%40oksbi%26pn%3DHarsh%2520Bharti%26am%3D79.00%26cu%3DINR" style="border-radius:14px; display:block;" alt="UPI QR"/>
             </div>
             <p style="color:#e2eaf8; margin:5px 0; font-size:1.1rem;">UPI ID: <b style="color:white; letter-spacing:1px;">bhartiharsh64-1@oksbi</b></p>
             <p style="color:#9ca3af; font-size:0.9rem; margin-bottom:0; margin-top:15px; opacity:0.8;">🔒 Powered by AI Verification. Instant Activation.</p>
