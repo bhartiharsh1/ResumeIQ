@@ -416,10 +416,15 @@ def pro_wall(feature_name, bullets):
                 
                 if res.get("is_valid"):
                     st.success("✅ Payment Verified!")
-                    st.markdown('''
+                    from utils.access_codes import generate_unique_code
+                    
+                    # Generate a unique code and persist it
+                    new_code = generate_unique_code()
+                    
+                    st.markdown(f'''
                     <div style="background:linear-gradient(135deg, #10b981, #059669); border-radius:12px; padding:20px; text-align:center; margin: 20px 0; box-shadow: 0 4px 15px rgba(16,185,129,0.3);">
-                        <h3 style="color:white; margin:0; font-size:1.2rem;">Your Access Code:</h3>
-                        <div style="font-size:2rem; font-weight:800; color:#fff; letter-spacing:2px; margin-top:10px; user-select:all;">HARSH-PRO-2026</div>
+                        <h3 style="color:white; margin:0; font-size:1.2rem;">Your Unique Access Code:</h3>
+                        <div style="font-size:2rem; font-weight:800; color:#fff; letter-spacing:2px; margin-top:10px; user-select:all;">{new_code}</div>
                         <p style="color:rgba(255,255,255,0.8); margin:10px 0 0 0; font-size:0.9rem;">Copy this code and paste it below to unlock.</p>
                     </div>
                     ''', unsafe_allow_html=True)
@@ -435,8 +440,8 @@ def pro_wall(feature_name, bullets):
         st.write("")
         st.write("")
         if st.button("Unlock 🔓", key=f"btn_{_key}", use_container_width=True):
-            # We can use a master code or valid generated codes
-            if access_code.strip() == "HARSH-PRO-2026":
+            from utils.access_codes import validate_code
+            if validate_code(access_code):
                 st.session_state.is_pro = True
                 st.rerun()
             else:
