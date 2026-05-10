@@ -12,7 +12,10 @@ def _load_json(filepath, default):
         return default
     try:
         with open(filepath, "r") as f:
-            return json.load(f)
+            data = json.load(f)
+            if isinstance(data, type(default)):
+                return data
+            return default
     except:
         return default
 
