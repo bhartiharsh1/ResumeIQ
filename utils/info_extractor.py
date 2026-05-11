@@ -41,7 +41,19 @@ def extract_basic_info(resume_text):
         match = re.search(pat, text, re.IGNORECASE)
         if match:
             found = match.group(1).strip()
+            
+            # Remove CGPA, numbers, year, grades
+            found = re.sub(r"\b\d+(\.\d+)?\b", "", found)
+            found = re.sub(r"cgpa|gpa|%|year|grade|percent|score", "", found, flags=re.IGNORECASE)
+            
+            # Keep only meaningful words
+            words = found.split()
+            words = [w for w in words if len(w) > 2 or w.lower() in ["of", "at"]]
+            found = " ".join(words).strip()
+            
+            # Clean trailing punctuation
             found = re.sub(r"[,;\-\(\)]+$", "", found).strip()
+            
             return name, roll_number, found
 
     # 🔥 fallback: line-based extraction
